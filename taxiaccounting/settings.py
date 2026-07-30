@@ -3,12 +3,14 @@ Django settings for taxiaccounting project.
 """
 from pathlib import Path
 import os
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-=2(p8zkg0uzw4%g!+02s9$f7cb56ei18#&912qyfdq#*b1to&c'
-DEBUG = True
-ALLOWED_HOSTS = ['*']
+# Security
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-=2(p8zkg0uzw4%g!+02s9$f7cb56ei18#&912qyfdq#*b1to&c')
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') + ['localhost', '127.0.0.1']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -33,6 +35,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -63,11 +66,13 @@ TEMPLATES = [
 WSGI_APPLICATION = 'taxiaccounting.wsgi.application'
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default='postgresql://postgres.jelieshshpmbcpmzdavn:jX7JvjqG4FTEEJe7@aws-0-eu-west-1.pooler.supabase.com:6543/postgres',
+        conn_max_age=600
+    )
 }
+
+# Note: In production, consider setting DATABASE_URL environment variable instead of hardcoding.
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -81,10 +86,11 @@ TIME_ZONE = 'Africa/Maseru'
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = 'static/'
-STATICFILES_DIRS = [BASE_DIR / 'static']
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-
+# Static files
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 

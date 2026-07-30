@@ -1,0 +1,1 @@
+web: gunicorn taxi_accounting.wsgi:application
