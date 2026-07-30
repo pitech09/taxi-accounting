@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% block title %}Edit Settlement{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-pencil"></i> Edit Settlement #{{ settlement.id }}</h2>
+    <div>
+        <a href="{% url 'owner_settlement_detail' settlement.id %}" class="btn btn-outline-info">View</a>
+        <a href="{% url 'owner_settlement_list' %}" class="btn btn-outline-secondary">All Settlements</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header bg-warning text-white">
+        <i class="bi bi-exclamation-triangle"></i> Owner Override
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">Settlement Period</label>
+                    {{ form.settlement_period }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Date</label>
+                    {{ form.date }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Payment Method</label>
+                    {{ form.payment_method }}
+                </div>
+            </div>
+
+            {% if settlement.settlement_period == 'weekly' %}
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Week Start</label>
+                    {{ form.week_start }}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Week End</label>
+                    {{ form.week_end }}
+                </div>
+            </div>
+            {% endif %}
+
+            <h5 class="text-success mt-4">Income</h5>
+            <div class="row mb-3">
+                <div class="col-md-4"><label class="form-label">Cash (M)</label>{{ form.cash_collected }}</div>
+                <div class="col-md-4"><label class="form-label">Mobile (M)</label>{{ form.mobile_collected }}</div>
+                <div class="col-md-4"><label class="form-label">Card (M)</label>{{ form.card_collected }}</div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-4"><label class="form-label">Advance (M)</label>{{ form.advance_income }}</div>
+                <div class="col-md-4"><label class="form-label">Other Income (M)</label>{{ form.other_income }}</div>
+            </div>
+
+            <h5 class="text-danger mt-4">Expenses</h5>
+            <div class="row mb-3">
+                <div class="col-md-4"><label class="form-label">Fuel (M)</label>{{ form.fuel_cost }}</div>
+                <div class="col-md-4"><label class="form-label">Toll (M)</label>{{ form.toll_cost }}</div>
+                <div class="col-md-4"><label class="form-label">Border (M)</label>{{ form.border_fee }}</div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-4"><label class="form-label">Repairs (M)</label>{{ form.repair_cost }}</div>
+                <div class="col-md-4"><label class="form-label">Allowance (M)</label>{{ form.driver_allowance }}</div>
+                <div class="col-md-4"><label class="form-label">Other (M)</label>{{ form.other_expenses }}</div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Notes</label>
+                    {{ form.notes }}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Owner Notes</label>
+                    {{ form.owner_notes }}
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> Current status: <strong>{{ settlement.get_status_display }}</strong>.
+                {% if settlement.status == 'approved' %}
+                Editing will recalculate all model calculations.
+                {% endif %}
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-save"></i> Save Changes</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

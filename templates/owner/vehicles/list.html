@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Vehicles{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-car-front"></i> Vehicles</h2>
+    <a href="{% url 'owner_vehicle_add' %}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Add Vehicle</a>
+</div>
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Plate</th>
+                        <th>Type</th>
+                        <th>Seats</th>
+                        <th>Model</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in vehicles %}
+                    <tr>
+                        <td><strong>{{ v.name }}</strong></td>
+                        <td>{{ v.plate }}</td>
+                        <td>{{ v.get_vehicle_type_display }}</td>
+                        <td>{{ v.seats }}</td>
+                        <td><span class="badge bg-info">{{ v.model_display }}</span></td>
+                        <td>{% if v.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-danger">Inactive</span>{% endif %}</td>
+                        <td><a href="{% url 'owner_vehicle_edit' v.id %}" class="btn btn-sm btn-outline-primary">Edit</a></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-center text-muted">No vehicles</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

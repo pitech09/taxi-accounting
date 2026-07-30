@@ -1,0 +1,251 @@
+{% extends 'base.html' %}
+{% block title %}Cash Book Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-wallet2"></i> Cash Book Dashboard</h2>
+    <div>
+        <a href="{% url 'owner_cashbook_add' %}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> New Transaction</a>
+        <a href="{% url 'owner_cashbook_bank_deposit' %}" class="btn btn-success"><i class="bi bi-bank"></i> Deposit</a>
+        <a href="{% url 'owner_cashbook_expense' %}" class="btn btn-danger"><i class="bi bi-receipt"></i> Record Expense</a>
+    </div>
+</div>
+
+<!-- Alerts -->
+{% if alerts %}
+<div class="mb-3">
+    {% for alert in alerts %}
+    <div class="alert alert-{{ alert.type }} alert-dismissible fade show d-flex align-items-center">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <div>{{ alert.message }}</div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card stat-card border-left-primary h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Cash in Hand</div>
+                <div class="h5 mb-0 font-weight-bold">M {{ cash_in_hand|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card stat-card border-left-success h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Bank Balance</div>
+                <div class="h5 mb-0 font-weight-bold">M {{ total_bank|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card stat-card border-left-info h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">MTD Cash In</div>
+                <div class="h5 mb-0 font-weight-bold">M {{ mtd_cash_in|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="card stat-card border-left-warning h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">MTD Cash Out</div>
+                <div class="h5 mb-0 font-weight-bold">M {{ mtd_cash_out|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Net Cash Flow -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted">Net Cash Flow (Month to Date):</span>
+                        <span class="h4 ms-2 {% if net_cash_flow >= 0 %}text-success{% else %}text-danger{% endif %} amount">
+                            M {{ net_cash_flow|floatformat:2 }}
+                        </span>
+                    </div>
+                    <div>
+                        <span class="text-muted">Total Liquidity:</span>
+                        <span class="h4 ms-2 text-primary amount">M {{ cash_in_hand|add:total_bank|floatformat:2 }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-light">
+                <i class="bi bi-lightning"></i> Quick Actions
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{% url 'owner_cashbook_add' %}" class="btn btn-outline-primary"><i class="bi bi-plus-circle"></i> Record Cash Addition</a>
+                    <a href="{% url 'owner_cashbook_add' %}" class="btn btn-outline-secondary"><i class="bi bi-dash-circle"></i> Record Cash Withdrawal</a>
+                    <a href="{% url 'owner_cashbook_bank_deposit' %}" class="btn btn-outline-success"><i class="bi bi-bank"></i> Bank Deposit</a>
+                    <a href="{% url 'owner_cashbook_bank_withdraw' %}" class="btn btn-outline-info"><i class="bi bi-arrow-down-left-circle"></i> Bank Withdrawal</a>
+                    <a href="{% url 'owner_cashbook_expense' %}" class="btn btn-outline-danger"><i class="bi bi-receipt"></i> Record Expense</a>
+                    <a href="{% url 'owner_cashbook_petty_cash' %}" class="btn btn-outline-warning"><i class="bi bi-coin"></i> Petty Cash</a>
+                    <a href="{% url 'owner_cashbook_banks' %}" class="btn btn-outline-dark"><i class="bi bi-building"></i> Manage Banks</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Cash Flow Chart -->
+    <div class="col-lg-7 mb-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-graph-up"></i> Cash Flow (Last 7 Days)
+            </div>
+            <div class="card-body">
+                <canvas id="cashFlowChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bank Accounts -->
+    <div class="col-lg-5 mb-4">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-bank"></i> Bank Accounts
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Account</th>
+                                <th>Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for bank in bank_accounts %}
+                            <tr>
+                                <td>{{ bank.name }}<br><small class="text-muted">{{ bank.bank_name }}</small></td>
+                                <td class="amount">M {{ bank.current_balance|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="2" class="text-center text-muted">No bank accounts</td></tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-light">
+                                <th>Total</th>
+                                <th class="amount">M {{ total_bank|floatformat:2 }}</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <a href="{% url 'owner_cashbook_banks' %}" class="btn btn-outline-success btn-sm w-100">Manage Bank Accounts</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Transactions -->
+<div class="card">
+    <div class="card-header bg-dark text-white">
+        <i class="bi bi-clock-history"></i> Recent Transactions
+        <a href="{% url 'owner_cashbook_entries' %}" class="btn btn-sm btn-light float-end">View All</a>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Category</th>
+                        <th>Description</th>
+                        <th>Amount</th>
+                        <th>Balance After</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in recent_transactions %}
+                    <tr>
+                        <td>{{ t.date|date:"d M Y" }}</td>
+                        <td>
+                            {% if t.is_inflow %}
+                                <span class="badge bg-success">{{ t.get_transaction_type_display }}</span>
+                            {% else %}
+                                <span class="badge bg-danger">{{ t.get_transaction_type_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td><small>{{ t.get_category_display }}</small></td>
+                        <td>
+                            {{ t.notes|truncatechars:40 }}
+                            {% if t.settlement %}<br><small class="text-muted">Settlement: {{ t.settlement.driver.name }}</small>{% endif %}
+                        </td>
+                        <td class="amount {% if t.is_inflow %}text-success{% else %}text-danger{% endif %}">
+                            {% if t.is_inflow %}+{% else %}-{% endif %}M {{ t.amount|floatformat:2 }}
+                        </td>
+                        <td class="amount">M {{ t.cash_balance_after|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center text-muted">No transactions recorded yet</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    const ctx = document.getElementById('cashFlowChart').getContext('2d');
+    const chartLabels = {{ chart_labels|safe }};
+    const chartIn = {{ chart_in|safe }};
+    const chartOut = {{ chart_out|safe }};
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: chartLabels,
+            datasets: [
+                {
+                    label: 'Cash In',
+                    data: chartIn,
+                    backgroundColor: 'rgba(28, 200, 138, 0.7)',
+                    borderColor: 'rgba(28, 200, 138, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Cash Out',
+                    data: chartOut,
+                    backgroundColor: 'rgba(231, 74, 59, 0.7)',
+                    borderColor: 'rgba(231, 74, 59, 1)',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) { return 'M ' + value; }
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

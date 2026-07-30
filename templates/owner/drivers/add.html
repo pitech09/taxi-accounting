@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Add Driver{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-plus-circle"></i> Add Driver</h2>
+    <a href="{% url 'owner_driver_list' %}" class="btn btn-outline-secondary">Back</a>
+</div>
+<div class="card">
+    <div class="card-header bg-primary text-white">Driver Details</div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row mb-3">
+                <div class="col-md-4"><label class="form-label">Name *</label><input type="text" name="name" class="form-control" required></div>
+                <div class="col-md-4"><label class="form-label">Driver Code</label><input type="text" name="driver_code" class="form-control" maxlength="4" pattern="\d{4}" placeholder="Auto-generated if blank"></div>
+                <div class="col-md-4"><label class="form-label">Phone *</label><input type="text" name="phone" class="form-control" required></div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-4"><label class="form-label">Email</label><input type="email" name="email" class="form-control"></div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-4"><label class="form-label">ID Number</label><input type="text" name="id_number" class="form-control"></div>
+                <div class="col-md-4"><label class="form-label">License Type</label><input type="text" name="license_type" class="form-control"></div>
+                <div class="col-md-4"><label class="form-label">License Number</label><input type="text" name="license_number" class="form-control"></div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-4"><label class="form-label">Address</label><textarea name="address" class="form-control" rows="2"></textarea></div>
+                <div class="col-md-4">
+                    <label class="form-label">Assign Vehicle</label>
+                    <select name="vehicle" class="form-select">
+                        <option value="">-- No Vehicle --</option>
+                        {% for v in vehicles %}
+                        <option value="{{ v.id }}">{{ v.name }} ({{ v.plate }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Settlement Frequency</label>
+                    <select name="settlement_frequency" class="form-select">
+                        <option value="">Use Vehicle Default</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Portal Access</label>
+                    <div class="form-check mt-2"><input type="checkbox" name="is_portal_enabled" class="form-check-input"><label class="form-check-label">Enable Portal</label></div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Portal Password</label><input type="text" name="portal_password" class="form-control">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Driver</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

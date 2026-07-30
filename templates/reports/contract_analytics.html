@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% block title %}Contract Analytics{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-bar-chart"></i> Contract Performance Analytics</h2>
+    <div>
+        <a href="{% url 'report_contract_progress' %}" class="btn btn-outline-info">Progress</a>
+        <a href="{% url 'report_contract_settlements' %}" class="btn btn-outline-info">Settlements</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-person"></i> Success Rate by Driver
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Driver</th>
+                                <th>Total</th>
+                                <th>Successes</th>
+                                <th>Rate</th>
+                                <th>Avg Bonus</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for d in driver_success %}
+                            <tr>
+                                <td>{{ d.driver__name }}</td>
+                                <td>{{ d.total }}</td>
+                                <td>{{ d.successes }}</td>
+                                <td>
+                                    {% widthratio d.successes d.total 100 %}%
+                                </td>
+                                <td class="amount">M {{ d.avg_bonus|default:0|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="text-muted text-center">No data</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <i class="bi bi-car-front"></i> Success Rate by Vehicle Type
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Vehicle Type</th>
+                                <th>Total</th>
+                                <th>Successes</th>
+                                <th>Rate</th>
+                                <th>Avg Bonus</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for v in vehicle_success %}
+                            <tr>
+                                <td>{{ v.vehicle__vehicle_type|title }}</td>
+                                <td>{{ v.total }}</td>
+                                <td>{{ v.successes }}</td>
+                                <td>
+                                    {% widthratio v.successes v.total 100 %}%
+                                </td>
+                                <td class="amount">M {{ v.avg_bonus|default:0|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="text-muted text-center">No data</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <i class="bi bi-graph-up"></i> Monthly Trend
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Period</th>
+                        <th>Total</th>
+                        <th>Successes</th>
+                        <th>Success Rate</th>
+                        <th>Total Bonuses</th>
+                        <th>Owner Revenue</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in monthly_trend %}
+                    <tr>
+                        <td>{{ t.month }}/{{ t.year }}</td>
+                        <td>{{ t.total }}</td>
+                        <td>{{ t.successes }}</td>
+                        <td>
+                            {% widthratio t.successes t.total 100 %}%
+                        </td>
+                        <td class="amount">M {{ t.total_bonuses|default:0|floatformat:2 }}</td>
+                        <td class="amount">M {{ t.total_owner_revenue|default:0|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-muted text-center">No data available</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

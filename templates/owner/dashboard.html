@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard - Taxi Accounting{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-speedometer2"></i> Owner Dashboard</h2>
+    <div>
+        <a href="{% url 'owner_settlement_add' %}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> New Settlement</a>
+        <a href="{% url 'owner_cashbook_dashboard' %}" class="btn btn-success"><i class="bi bi-wallet2"></i> Cash Book</a>
+        <a href="{% url 'owner_contract_dashboard' %}" class="btn btn-info"><i class="bi bi-file-earmark-text"></i> Contracts</a>
+    </div>
+</div>
+
+{% if pending_approvals %}
+<div class="alert alert-warning alert-dismissible fade show d-flex align-items-center" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+    <div>
+        <strong>{{ pending_approvals }}</strong> settlement(s) awaiting your approval.
+        <a href="{% url 'owner_pending_approvals' %}" class="alert-link ms-2">Review now →</a>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+{% if alerts %}
+<div class="mb-3">
+    {% for alert in alerts %}
+    <div class="alert alert-{{ alert.type }} alert-dismissible fade show d-flex align-items-center">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <div>{{ alert.message }}</div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-xl-2 col-md-4 mb-3">
+        <div class="card stat-card border-left-primary h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Vehicles (Active)</div>
+                <div class="h5 mb-0 font-weight-bold">{{ total_vehicles }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-3">
+        <div class="card stat-card border-left-success h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Active Drivers</div>
+                <div class="h5 mb-0 font-weight-bold">{{ total_drivers }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-3">
+        <div class="card stat-card border-left-info h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Cash in Hand</div>
+                <div class="h5 mb-0 font-weight-bold amount">M {{ cash_in_hand|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-3">
+        <div class="card stat-card border-left-warning h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Bank Balance</div>
+                <div class="h5 mb-0 font-weight-bold amount">M {{ total_bank|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-3">
+        <div class="card stat-card border-left-danger h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Owner Collected</div>
+                <div class="h5 mb-0 font-weight-bold">M {{ monthly_owner_collected|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-3">
+        <div class="card stat-card border-left-secondary h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">Active Contracts</div>
+                <div class="h5 mb-0 font-weight-bold">{{ total_contracts }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Model Breakdown -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-pie-chart"></i> Operating Model Breakdown
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Model</th>
+                                <th>Vehicles</th>
+                                <th>Monthly Income</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for model in model_breakdown %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-{% if model.key == 'quota' %}primary{% elif model.key == 'salary' %}success{% elif model.key == 'percentage' %}warning{% else %}info{% endif %}">
+                                        {{ model.name }}
+                                    </span>
+                                </td>
+                                <td>{{ model.count }}</td>
+                                <td class="amount">M {{ model.income|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3" class="text-center text-muted">No vehicles added yet</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contract Status -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-file-earmark-check"></i> Contract Status Summary
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="text-success">
+                            <i class="bi bi-check-circle-fill fs-1"></i>
+                            <h5 class="mt-2">{{ contracts_achieved }}</h5>
+                            <small>Achieved</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-warning">
+                            <i class="bi bi-exclamation-triangle-fill fs-1"></i>
+                            <h5 class="mt-2">{{ contracts_on_target }}</h5>
+                            <small>On Track</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-danger">
+                            <i class="bi bi-x-circle-fill fs-1"></i>
+                            <h5 class="mt-2">{{ contracts_at_risk }}</h5>
+                            <small>At Risk</small>
+                        </div>
+                    </div>
+                </div>
+                <a href="{% url 'owner_contract_dashboard' %}" class="btn btn-outline-success btn-sm mt-3">View All Contracts</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Settlements -->
+<div class="card">
+    <div class="card-header bg-dark text-white">
+        <i class="bi bi-clock-history"></i> Recent Settlements
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Driver</th>
+                        <th>Vehicle</th>
+                        <th>Model</th>
+                        <th>Status</th>
+                        <th>Income</th>
+                        <th>Driver Pay</th>
+                        <th>Owner Gets</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in recent_settlements %}
+                    <tr>
+                        <td>{{ s.date|date:"d M Y" }}</td>
+                        <td><a href="{% url 'owner_driver_edit' s.driver.id %}">{{ s.driver.name }}</a></td>
+                        <td>{{ s.vehicle.name }}</td>
+                        <td><span class="badge bg-info">{{ s.operating_model|title }}</span></td>
+                        <td>
+                            {% if s.status == 'approved' %}
+                                <span class="badge bg-success">Approved</span>
+                            {% elif s.status == 'submitted' %}
+                                <span class="badge bg-warning">Submitted</span>
+                            {% elif s.status == 'rejected' %}
+                                <span class="badge bg-danger">Rejected</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Draft</span>
+                            {% endif %}
+                        </td>
+                        <td class="amount">M {{ s.total_income|floatformat:2 }}</td>
+                        <td class="amount">M {{ s.driver_pay|floatformat:2 }}</td>
+                        <td class="amount">M {{ s.total_owner_collected|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="text-center text-muted">No settlements recorded yet</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,409 @@
+from decimal import Decimal
+from django.test import TestCase
+from django.contrib.auth.models import User
+from django.utils import timezone
+from datetime import date, timedelta
+
+from vehicles.models import Vehicle
+from drivers.models import Driver
+from settlements.models import DailySettlement, DriverSettlementSchedule
+
+
+class SettlementBaseTestCase(TestCase):
+    """Base test case with common setup for all model tests."""
+
+    def setUp(self):
+        self.admin_user = User.objects.create_user(
+            username='testadmin', password='testpass123', is_staff=True
+        )
+
+    def _create_vehicle(self, **kwargs):
+        defaults = {
+            'name': 'Test Vehicle',
+            'vehicle_type': 'sedan',
+            'seats': 4,
+            'plate': f'TEST-{kwargs.get("operating_model", "test")}-{Vehicle.objects.count()}',
+            'operating_model': 'quota',
+        }
+        defaults.update(kwargs)
+        return Vehicle.objects.create(**defaults)
+
+    def _create_driver(self, vehicle, **kwargs):
+        defaults = {
+            'name': 'Test Driver',
+            'phone': f'+266 5000 {Driver.objects.count():04d}',
+            'vehicle': vehicle,
+        }
+        defaults.update(kwargs)
+        return Driver.objects.create(**defaults)
+
+    def _create_settlement(self, vehicle, driver, **kwargs):
+        defaults = {
+            'vehicle': vehicle,
+            'driver': driver,
+            'date': kwargs.pop('date', date.today()),
+            'cash_collected': Decimal('500.00'),
+            'mobile_collected': Decimal('200.00'),
+            'card_collected': Decimal('100.00'),
+            'fuel_cost': Decimal('150.00'),
+            'toll_cost': Decimal('50.00'),
+            'driver_allowance': Decimal('80.00'),
+            'status': 'approved',
+            'approved_at': timezone.now(),
+            'approved_by': self.admin_user,
+        }
+        defaults.update(kwargs)
+        return DailySettlement.objects.create(**defaults)
+
+
+class QuotaModelTests(SettlementBaseTestCase):
+    """Tests for the Quota operating model."""
+
+    def setUp(self):
+        super().setUp()
+        self.vehicle = self._create_vehicle(
+            operating_model='quota',
+            daily_quota=Decimal('250.00'),
+        )
+        self.driver = self._create_driver(self.vehicle)
+
+    def test_quota_surplus(self):
+        """Driver makes more than quota - keeps surplus."""
+        settlement = self._create_settlement(
+            self.vehicle, self.driver,
+            cash_collected=Decimal('600.00'),
+            mobile_collected=Decimal('200.00'),
+            fuel_cost=Decimal('100.00'),
+            toll_cost=Decimal('50.00'),
+        )
+        # Total income = 800, expenses = 150, gross_profit = 650
+        # Quota = 250, surplus = 650 - 250 = 400
+        self.assertEqual(settlement.daily_quota, Decimal('250.00'))
+        self.assertEqual(settlement.surplus_shortfall, Decimal('400.00'))
+        self.assertEqual(settlement.driver_pay, Decimal('400.00'))
+        self.assertEqual(settlement.new_debt, Decimal('0'))
+        self.assertEqual(settlement.debt_status, 'clear')
+
+    def test_quota_shortfall_creates_debt(self):
+        """Driver makes less than quota - debt is created."""
+        settlement = self._create_settlement(
+            self.vehicle, self.driver,
+            cash_collected=Decimal('100.00'),
+            mobile_collected=Decimal('50.00'),
+            fuel_cost=Decimal('80.00'),
+            toll_cost=Decimal('20.00'),
+        )
+        # Total income = 150, expenses = 100, gross_profit = 50
+        # Quota = 250, shortfall = 50 - 250 = -200
+        self.assertEqual(settlement.surplus_shortfall, Decimal('-200.00'))
+        self.assertEqual(settlement.new_debt, Decimal('200.00'))
+        self.assertEqual(settlement.driver_pay, Decimal('0'))
+        self.assertEqual(settlement.debt_status, 'owing')
+
+    def test_quota_debt_repaid(self):
+        """Driver with previous debt repays it from surplus."""
+        # First settlement creates debt
+        s1 = self._create_settlement(
+            self.vehicle, self.driver,
+            date=date.today() - timedelta(days=1),
+            cash_collected=Decimal('100.00'),
+            fuel_cost=Decimal('80.00'),
+        )
+        self.assertEqual(s1.new_debt, Decimal('230.00'))  # 20 - 250 = -230
+
+        # Second settlement with surplus repays debt
+        s2 = self._create_settlement(
+            self.vehicle, self.driver,
+            date=date.today(),
+            cash_collected=Decimal('800.00'),
+            fuel_cost=Decimal('100.00'),
+        )
+        # gross_profit = 700, quota = 250, surplus = 450
+        # previous_debt = 230, debt_repaid = min(230, 450) = 230
+        # new_debt = 230 - 230 = 0
+        # driver_pay = 450 - 230 = 220
+        self.assertEqual(s2.previous_debt, Decimal('230.00'))
+        self.assertEqual(s2.debt_repaid, Decimal('230.00'))
+        self.assertEqual(s2.new_debt, Decimal('0'))
+        self.assertEqual(s2.driver_pay, Decimal('220.00'))
+        self.assertEqual(s2.debt_status, 'clear')
+
+    def test_quota_owner_collected(self):
+        """Owner collects quota plus any debt repayment."""
+        settlement = self._create_settlement(
+            self.vehicle, self.driver,
+            cash_collected=Decimal('600.00'),
+            fuel_cost=Decimal('100.00'),
+        )
+        # gross_profit = 500, quota = 250
+        # quota_paid = 250, debt_repaid = 0
+        # total_owner_collected = 250 + 0 = 250
+        self.assertEqual(settlement.quota_paid_to_owner, Decimal('250.00'))
+        self.assertEqual(settlement.total_owner_collected, Decimal('250.00'))
+
+
+class SalaryModelTests(SettlementBaseTestCase):
+    """Tests for the Salary operating model."""
+
+    def setUp(self):
+        super().setUp()
+        self.vehicle = self._create_vehicle(
+            operating_model='salary',
+            monthly_salary=Decimal('3000.00'),
+        )
+        self.driver = self._create_driver(self.vehicle)
+
+    def test_salary_daily_earned(self):
+        """Driver earns daily salary = monthly / 30."""
+        settlement = self._create_settlement(self.vehicle, self.driver)
+        # daily_salary = 3000 / 30 = 100
+        self.assertEqual(settlement.daily_salary_earned, Decimal('100.00'))
+        self.assertEqual(settlement.driver_pay, Decimal('100.00'))
+
+    def test_salary_owner_collects_rest(self):
+        """Owner collects gross profit minus driver's daily salary."""
+        settlement = self._create_settlement(
+            self.vehicle, self.driver,
+            cash_collected=Decimal('500.00'),
+            fuel_cost=Decimal('100.00'),
+        )
+        # gross_profit = 400, driver_pay = 100
+        # owner_collected = 400 - 100 = 300
+        self.assertEqual(settlement.driver_pay, Decimal('100.00'))
+        self.assertEqual(settlement.total_owner_collected, Decimal('300.00'))
+
+    def test_salary_override(self):
+        """Driver salary override takes precedence."""
+        self.driver.monthly_salary_override = Decimal('4500.00')
+        self.driver.save()
+        settlement = self._create_settlement(self.vehicle, self.driver)
+        # daily_salary = 4500 / 30 = 150
+        self.assertEqual(settlement.daily_salary_earned, Decimal('150.00'))
+
+
+class PercentageModelTests(SettlementBaseTestCase):
+    """Tests for the Percentage operating model."""
+
+    def setUp(self):
+        super().setUp()
+        self.vehicle = self._create_vehicle(
+            operating_model='percentage',
+            driver_percentage=Decimal('30.00'),
+        )
+        self.driver = self._create_driver(self.vehicle)
+
+    def test_percentage_calculation(self):
+        """Driver gets 30% of gross income."""
+        settlement = self._create_settlement(
+            self.vehicle, self.driver,
+            cash_collected=Decimal('500.00'),
+            mobile_collected=Decimal('300.00'),
+            card_collected=Decimal('200.00'),
+        )
+        # total_income = 1000, driver gets 30% = 300
+        self.assertEqual(settlement.driver_percentage, Decimal('30.00'))
+        self.assertEqual(settlement.driver_percentage_amount, Decimal('300.00'))
+        self.assertEqual(settlement.driver_pay, Decimal('300.00'))
+        self.assertEqual(settlement.owner_percentage_amount, Decimal('700.00'))
+        self.assertEqual(settlement.total_owner_collected, Decimal('700.00'))
+
+    def test_percentage_override(self):
+        """Driver percentage override takes precedence."""
+        self.driver.percentage_override = Decimal('40.00')
+        self.driver.save()
+        settlement = self._create_settlement(
+            self.vehicle, self.driver,
+            cash_collected=Decimal('1000.00'),
+        )
+        self.assertEqual(settlement.driver_percentage, Decimal('40.00'))
+        self.assertEqual(settlement.driver_pay, Decimal('400.00'))
+
+
+class ContractModelTests(SettlementBaseTestCase):
+    """Tests for the Contract operating model."""
+
+    def setUp(self):
+        super().setUp()
+        self.vehicle = self._create_vehicle(
+            vehicle_type='bus',
+            seats=30,
+            operating_model='contract',
+            contract_target=Decimal('5000.00'),
+            contract_success_bonus_type='fixed',
+            contract_success_bonus_fixed=Decimal('1000.00'),
+            contract_success_bonus_percentage=Decimal('10.00'),
+            contract_failure_percentage=Decimal('20.00'),
+        )
+        self.driver = self._create_driver(self.vehicle)
+
+    def test_contract_below_target(self):
+        """When below target, driver gets failure percentage of gross."""
+        settlement = self._create_settlement(
+            self.vehicle, self.driver,
+            cash_collected=Decimal('500.00'),
+        )
+        # monthly_gross = 500, target = 5000, below target
+        # failure_pay = 20% of 500 = 100
+        self.assertFalse(settlement.contract_is_success)
+        self.assertEqual(settlement.contract_driver_pay, Decimal('100.00'))
+        self.assertEqual(settlement.driver_pay, Decimal('100.00'))
+
+    def test_contract_above_target(self):
+        """When above target, driver gets success bonus."""
+        # Create enough settlements to exceed target
+        for i in range(10):
+            self._create_settlement(
+                self.vehicle, self.driver,
+                date=date.today() - timedelta(days=10 - i),
+                cash_collected=Decimal('600.00'),
+            )
+        last = DailySettlement.objects.filter(driver=self.driver).latest('date')
+        # monthly_gross = 6000, target = 5000, success!
+        # bonus = 1000 (fixed), split across 10 settlements = 100 each
+        self.assertTrue(last.contract_is_success)
+        self.assertEqual(last.contract_driver_bonus, Decimal('1000.00'))
+
+    def test_contract_remaining_target(self):
+        """Remaining target is calculated correctly."""
+        settlement = self._create_settlement(
+            self.vehicle, self.driver,
+            cash_collected=Decimal('1000.00'),
+        )
+        # monthly_gross = 1000, target = 5000, remaining = 4000
+        self.assertEqual(settlement.contract_remaining_target, Decimal('4000.00'))
+
+
+class ApprovalWorkflowTests(SettlementBaseTestCase):
+    """Tests for the approval workflow."""
+
+    def setUp(self):
+        super().setUp()
+        self.vehicle = self._create_vehicle(operating_model='quota')
+        self.driver = self._create_driver(self.vehicle)
+
+    def test_draft_settlement_no_calculations(self):
+        """Draft settlements should not have calculations applied."""
+        settlement = DailySettlement.objects.create(
+            vehicle=self.vehicle,
+            driver=self.driver,
+            date=date.today(),
+            cash_collected=Decimal('500.00'),
+            fuel_cost=Decimal('100.00'),
+            status='draft',
+        )
+        self.assertEqual(settlement.driver_pay, Decimal('0'))
+        self.assertEqual(settlement.total_owner_collected, Decimal('0'))
+        self.assertEqual(settlement.daily_quota, Decimal('0'))
+
+    def test_submitted_settlement_no_calculations(self):
+        """Submitted settlements should not have calculations applied."""
+        settlement = DailySettlement.objects.create(
+            vehicle=self.vehicle,
+            driver=self.driver,
+            date=date.today(),
+            cash_collected=Decimal('500.00'),
+            fuel_cost=Decimal('100.00'),
+            status='submitted',
+            submitted_at=timezone.now(),
+        )
+        self.assertEqual(settlement.driver_pay, Decimal('0'))
+        self.assertEqual(settlement.total_owner_collected, Decimal('0'))
+
+    def test_approved_settlement_has_calculations(self):
+        """Approved settlements should have calculations applied."""
+        settlement = DailySettlement.objects.create(
+            vehicle=self.vehicle,
+            driver=self.driver,
+            date=date.today(),
+            cash_collected=Decimal('500.00'),
+            fuel_cost=Decimal('100.00'),
+            status='approved',
+            approved_at=timezone.now(),
+            approved_by=self.admin_user,
+        )
+        self.assertGreater(settlement.driver_pay, Decimal('0'))
+        self.assertGreater(settlement.total_owner_collected, Decimal('0'))
+        self.assertEqual(settlement.daily_quota, Decimal('250.00'))
+
+    def test_rejected_settlement_no_calculations(self):
+        """Rejected settlements should not have calculations."""
+        settlement = DailySettlement.objects.create(
+            vehicle=self.vehicle,
+            driver=self.driver,
+            date=date.today(),
+            cash_collected=Decimal('500.00'),
+            fuel_cost=Decimal('100.00'),
+            status='rejected',
+        )
+        self.assertEqual(settlement.driver_pay, Decimal('0'))
+        self.assertEqual(settlement.total_owner_collected, Decimal('0'))
+
+    def test_income_expenses_always_calculated(self):
+        """Income and expenses should be calculated regardless of status."""
+        settlement = DailySettlement.objects.create(
+            vehicle=self.vehicle,
+            driver=self.driver,
+            date=date.today(),
+            cash_collected=Decimal('500.00'),
+            mobile_collected=Decimal('200.00'),
+            fuel_cost=Decimal('100.00'),
+            toll_cost=Decimal('50.00'),
+            status='draft',
+        )
+        self.assertEqual(settlement.total_income, Decimal('700.00'))
+        self.assertEqual(settlement.total_expenses, Decimal('150.00'))
+        self.assertEqual(settlement.gross_profit, Decimal('550.00'))
+
+
+class DriverSettlementScheduleTests(SettlementBaseTestCase):
+    """Tests for the DriverSettlementSchedule model."""
+
+    def setUp(self):
+        super().setUp()
+        self.vehicle = self._create_vehicle(operating_model='quota')
+        self.driver = self._create_driver(self.vehicle)
+
+    def test_create_schedule(self):
+        """Test creating a settlement schedule."""
+        schedule = DriverSettlementSchedule.objects.create(
+            driver=self.driver,
+            frequency='weekly',
+            week_start_day=0,
+            effective_from=date.today(),
+        )
+        self.assertEqual(schedule.frequency, 'weekly')
+        self.assertEqual(schedule.week_start_day, 0)
+
+
+class SettlementPeriodTests(SettlementBaseTestCase):
+    """Tests for daily/weekly settlement periods."""
+
+    def setUp(self):
+        super().setUp()
+        self.vehicle = self._create_vehicle(operating_model='quota')
+        self.driver = self._create_driver(self.vehicle)
+
+    def test_daily_settlement(self):
+        """Daily settlement has correct period."""
+        settlement = self._create_settlement(
+            self.vehicle, self.driver,
+            settlement_period='daily',
+        )
+        self.assertEqual(settlement.settlement_period, 'daily')
+        self.assertIsNone(settlement.week_start)
+        self.assertIsNone(settlement.week_end)
+
+    def test_weekly_settlement(self):
+        """Weekly settlement has week start and end."""
+        today = date.today()
+        monday = today - timedelta(days=today.weekday())
+        sunday = monday + timedelta(days=6)
+        settlement = self._create_settlement(
+            self.vehicle, self.driver,
+            settlement_period='weekly',
+            week_start=monday,
+            week_end=sunday,
+        )
+        self.assertEqual(settlement.settlement_period, 'weekly')
+        self.assertEqual(settlement.week_start, monday)
+        self.assertEqual(settlement.week_end, sunday)

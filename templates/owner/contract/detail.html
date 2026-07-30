@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+{% block title %}Contract Detail - {{ driver.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-file-earmark-text"></i> Contract: {{ driver.name }}</h2>
+    <div>
+        <a href="{% url 'owner_contract_settle' driver.id %}" class="btn btn-success"><i class="bi bi-check-circle"></i> Settle Contract</a>
+        <a href="{% url 'owner_contract_dashboard' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+    </div>
+</div>
+
+<!-- Driver Info -->
+<div class="card mb-4">
+    <div class="card-header bg-info text-white">
+        <i class="bi bi-person"></i> Driver Information
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-3"><strong>Name:</strong> {{ driver.name }}</div>
+            <div class="col-md-3"><strong>Phone:</strong> {{ driver.phone }}</div>
+            <div class="col-md-3"><strong>Vehicle:</strong> {{ driver.vehicle.name|default:'N/A' }}</div>
+            <div class="col-md-3"><strong>Plate:</strong> {{ driver.vehicle.plate|default:'N/A' }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Contract Parameters -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Target Amount</h6>
+                <h3 class="text-primary">M {{ target|floatformat:2 }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Bonus Type</h6>
+                <h3 class="text-success">{{ bonus_type|title }}</h3>
+                <small>Fixed: M {{ success_bonus_fixed|floatformat:2 }} | {{ success_bonus_percentage|floatformat:0 }}%</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Failure %</h6>
+                <h3 class="text-danger">{{ failure_percentage|floatformat:0 }}%</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Tracking -->
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <i class="bi bi-graph-up"></i> Progress Tracking
+    </div>
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <small class="text-muted">Total Gross Earned</small>
+                <h4>M {{ monthly_gross|floatformat:2 }}</h4>
+            </div>
+            <div class="col-md-3">
+                <small class="text-muted">Remaining to Target</small>
+                <h4>M {{ remaining|floatformat:2 }}</h4>
+            </div>
+            <div class="col-md-3">
+                <small class="text-muted">Days Remaining</small>
+                <h4>{{ days_remaining }}</h4>
+            </div>
+            <div class="col-md-3">
+                <small class="text-muted">Daily Avg Needed</small>
+                <h4>M {{ daily_average_needed|floatformat:2 }}</h4>
+            </div>
+        </div>
+        
+        <div class="progress mb-3" style="height: 30px;">
+            <div class="progress-bar {% if progress >= 100 %}bg-success{% elif progress >= 70 %}bg-warning{% else %}bg-danger{% endif %}" 
+                 style="width: {{ progress }}%;">
+                {{ progress|floatformat:1 }}%
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-6">
+                <small>Current daily average: <strong>M {{ daily_average_current|floatformat:2 }}</strong></small>
+            </div>
+            <div class="col-6 text-end">
+                <small>Days passed: <strong>{{ days_passed }}</strong></small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estimated Payout -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card border-success">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-check-circle"></i> Success Scenario
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <small>Bonus</small>
+                        <h4>M {{ success_bonus|floatformat:2 }}</h4>
+                    </div>
+                    <div class="col-6">
+                        <small>Driver Pay</small>
+                        <h4>M {{ driver_pay|floatformat:2 }}</h4>
+                    </div>
+                </div>
+                <hr>
+                <div class="text-muted">
+                    <small>Owner gets: M {{ owner_pay|floatformat:2 }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <i class="bi bi-x-circle"></i> Failure Scenario
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <small>Failure %</small>
+                        <h4>{{ failure_percentage|floatformat:0 }}%</h4>
+                    </div>
+                    <div class="col-6">
+                        <small>Driver Pay</small>
+                        <h4>M {{ driver_pay|floatformat:2 }}</h4>
+                    </div>
+                </div>
+                <hr>
+                <div class="text-muted">
+                    <small>Owner gets: M {{ owner_pay|floatformat:2 }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Daily Settlements -->
+<div class="card">
+    <div class="card-header bg-dark text-white">
+        <i class="bi bi-calendar-day"></i> Daily Settlements This Month
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Daily Gross</th>
+                        <th>Monthly Gross</th>
+                        <th>Remaining</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in settlements %}
+                    <tr>
+                        <td>{{ s.date|date:"d M" }}</td>
+                        <td class="amount">M {{ s.total_income|floatformat:2 }}</td>
+                        <td class="amount">M {{ s.contract_monthly_gross|floatformat:2 }}</td>
+                        <td class="amount">M {{ s.contract_remaining_target|floatformat:2 }}</td>
+                        <td>
+                            {% if s.contract_is_success %}
+                                <span class="badge bg-success">Achieved! 🎉</span>
+                            {% else %}
+                                <span class="badge bg-warning">In Progress</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted">No settlements this month</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

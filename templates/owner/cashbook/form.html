@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-cash-coin"></i> {{ title }}
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" id="cashTransactionForm">
+                    {% csrf_token %}
+
+                    {% if form.errors %}
+                    <div class="alert alert-danger">
+                        Please correct the errors below.
+                    </div>
+                    {% endif %}
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Transaction Type <span class="text-danger">*</span></label>
+                            {{ form.transaction_type }}
+                            {% if form.transaction_type.errors %}<div class="text-danger small">{{ form.transaction_type.errors }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Category <span class="text-danger">*</span></label>
+                            {{ form.category }}
+                            {% if form.category.errors %}<div class="text-danger small">{{ form.category.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Amount (M) <span class="text-danger">*</span></label>
+                            {{ form.amount }}
+                            {% if form.amount.errors %}<div class="text-danger small">{{ form.amount.errors }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Date <span class="text-danger">*</span></label>
+                            {{ form.date }}
+                            {% if form.date.errors %}<div class="text-danger small">{{ form.date.errors }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Bank Account</label>
+                            {{ form.bank_account }}
+                            <small class="text-muted">Required for transfers</small>
+                            {% if form.bank_account.errors %}<div class="text-danger small">{{ form.bank_account.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Reference</label>
+                            {{ form.reference }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Receipt Photo</label>
+                            {{ form.receipt_photo }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        {{ form.notes }}
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'owner_cashbook_entries' %}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save Transaction</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <i class="bi bi-calculator"></i> Balance Preview
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="text-muted">Current Cash in Hand</label>
+                    <h4 id="currentCashBalance" class="amount">M {{ cash_in_hand|floatformat:2 }}</h4>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted">Projected Cash in Hand</label>
+                    <h4 id="projectedBalance" class="amount text-primary">M {{ cash_in_hand|floatformat:2 }}</h4>
+                </div>
+                <hr>
+                <div class="small text-muted">
+                    <p><strong>Addition / Transfer from Bank:</strong> Increases cash in hand</p>
+                    <p><strong>Withdrawal / Transfer to Bank / Expense / Petty Cash:</strong> Decreases cash in hand</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const transactionForm = document.getElementById('cashTransactionForm');
+
+    if (transactionForm) {
+        const amountField = document.getElementById('id_amount');
+        const typeField = document.getElementById('id_transaction_type');
+        const balanceDisplay = document.getElementById('currentCashBalance');
+        const projectedDisplay = document.getElementById('projectedBalance');
+
+        function updateProjectedBalance() {
+            const type = typeField.value;
+            const amount = parseFloat(amountField.value) || 0;
+            const currentBalance = parseFloat(balanceDisplay.textContent.replace('M ', '').replace(/,/g, '')) || 0;
+
+            let newBalance = currentBalance;
+            if (['addition', 'transfer_from_bank'].includes(type)) {
+                newBalance = currentBalance + amount;
+            } else {
+                newBalance = currentBalance - amount;
+            }
+
+            projectedDisplay.textContent = 'M ' + newBalance.toFixed(2);
+            projectedDisplay.className = 'amount ' + (newBalance >= 0 ? 'text-success' : 'text-danger');
+        }
+
+        amountField.addEventListener('input', updateProjectedBalance);
+        typeField.addEventListener('change', updateProjectedBalance);
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends 'driver_portal/base_driver.html' %}
+{% block title %}My Settlements{% endblock %}
+{% block content %}
+<h2><i class="bi bi-cash-stack"></i> My Settlement History</h2>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Cash</th>
+                        <th>Mobile</th>
+                        <th>Card</th>
+                        <th>Total Income</th>
+                        <th>Expenses</th>
+                        <th>Your Pay</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in settlements %}
+                    <tr>
+                        <td>{{ s.date|date:"d M Y" }}</td>
+                        <td>M {{ s.cash_collected|floatformat:2 }}</td>
+                        <td>M {{ s.mobile_collected|floatformat:2 }}</td>
+                        <td>M {{ s.card_collected|floatformat:2 }}</td>
+                        <td class="amount">M {{ s.total_income|floatformat:2 }}</td>
+                        <td class="amount">M {{ s.total_expenses|floatformat:2 }}</td>
+                        <td class="amount text-success">M {{ s.driver_pay|floatformat:2 }}</td>
+                        <td>{{ s.notes|truncatewords:5 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="text-center text-muted">No settlements found</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

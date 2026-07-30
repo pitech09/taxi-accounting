@@ -1,0 +1,154 @@
+{% extends 'driver_portal/base_driver.html' %}
+{% block title %}Your Contract Progress{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>📊 Your Contract Progress</h2>
+        <p class="text-muted">{{ month_name }} {{ year }}</p>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h6 class="text-muted">Target</h6>
+                <h3>M {{ target|floatformat:2 }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h6 class="text-muted">Earned So Far</h6>
+                <h3>M {{ monthly_gross|floatformat:2 }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h6 class="text-muted">Remaining</h6>
+                <h3>M {{ remaining|floatformat:2 }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h6 class="text-muted">Days Remaining</h6>
+                <h3>{{ days_remaining }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h6>Progress</h6>
+                <div class="progress" style="height: 30px;">
+                    <div class="progress-bar {% if progress >= 100 %}bg-success{% elif progress >= 70 %}bg-warning{% else %}bg-danger{% endif %}" 
+                         style="width: {{ progress }}%;">
+                        {{ progress|floatformat:0 }}%
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-6">
+                        <small>Daily average needed: <strong>M {{ daily_average_needed|floatformat:2 }}</strong></small>
+                    </div>
+                    <div class="col-6 text-end">
+                        <small>Current daily average: <strong>M {{ daily_average_current|floatformat:2 }}</strong></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-md-6">
+        <div class="card border-success">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-check-circle"></i> If You Achieve Target
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <small>Bonus</small>
+                        <h4>M {{ success_bonus|floatformat:2 }}</h4>
+                    </div>
+                    <div class="col-6">
+                        <small>Your Total Pay</small>
+                        <h4>M {{ success_pay|floatformat:2 }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <i class="bi bi-x-circle"></i> If You Don't Achieve Target
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <small>Failure Percentage</small>
+                        <h4>{{ failure_percentage }}%</h4>
+                    </div>
+                    <div class="col-6">
+                        <small>Your Estimated Pay</small>
+                        <h4>M {{ failure_pay|floatformat:2 }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <i class="bi bi-calendar-day"></i> Daily Progress
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Daily Gross</th>
+                                <th>Monthly Gross</th>
+                                <th>Remaining</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for settlement in daily_settlements %}
+                            <tr>
+                                <td>{{ settlement.date|date:"d M" }}</td>
+                                <td>M {{ settlement.total_income|floatformat:2 }}</td>
+                                <td>M {{ settlement.contract_monthly_gross|floatformat:2 }}</td>
+                                <td>M {{ settlement.contract_remaining_target|floatformat:2 }}</td>
+                                <td>
+                                    {% if settlement.contract_is_success %}
+                                        <span class="badge bg-success">Achieved! 🎉</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">In Progress</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="text-center">No settlements yet this month</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,156 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settlement Slip #{{ settlement.id }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #fff;
+            color: #000;
+            margin: 20px;
+        }
+        .slip {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 2px solid #000;
+            padding: 30px;
+        }
+        .slip-header {
+            text-align: center;
+            border-bottom: 2px solid #000;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        .slip-header h2 {
+            margin: 0;
+            font-weight: 700;
+        }
+        .amount {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+        }
+        table {
+            width: 100%;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+        .status-approved { background: #d4edda; color: #155724; }
+        .status-submitted { background: #fff3cd; color: #856404; }
+        .status-rejected { background: #f8d7da; color: #721c24; }
+        .status-draft { background: #e2e3e5; color: #383d41; }
+        .print-btn {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        @media print {
+            .print-btn { display: none; }
+            .slip { border: none; padding: 0; }
+            body { margin: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="print-btn">
+        <button onclick="window.print()" class="btn btn-primary">
+            <i class="bi bi-printer"></i> Print Settlement Slip
+        </button>
+        <a href="{% url 'driver_settlement_view' settlement.id %}" class="btn btn-outline-secondary">Back</a>
+    </div>
+
+    <div class="slip">
+        <div class="slip-header">
+            <h2>{% if settings %}{{ settings.company_name }}{% else %}Taxi Accounting System{% endif %}</h2>
+            <p>Settlement Slip — {{ settlement.get_settlement_period_display }}</p>
+            {% if settings %}
+            <small>{{ settings.company_address }} | {{ settings.company_phone }}</small>
+            {% endif %}
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-6">
+                <strong>Slip #:</strong> {{ settlement.id }}<br>
+                <strong>Date:</strong> {{ settlement.date|date:"d F Y" }}<br>
+                {% if settlement.settlement_period == 'weekly' %}
+                <strong>Week:</strong> {{ settlement.week_start|date:"d M" }} – {{ settlement.week_end|date:"d M Y" }}<br>
+                {% endif %}
+            </div>
+            <div class="col-6 text-end">
+                <strong>Driver:</strong> {{ settlement.driver.name }}<br>
+                <strong>Vehicle:</strong> {{ settlement.vehicle.name }} ({{ settlement.vehicle.plate }})<br>
+                <strong>Model:</strong> {{ settlement.operating_model|title }}<br>
+                <strong>Status:</strong>
+                <span class="status-badge status-{{ settlement.status }}">{{ settlement.get_status_display }}</span>
+            </div>
+        </div>
+
+        <h5>Income</h5>
+        <table class="table table-sm table-bordered">
+            <tr><td>Cash Collected</td><td class="amount text-end">M {{ settlement.cash_collected|floatformat:2 }}</td></tr>
+            <tr><td>Mobile Money</td><td class="amount text-end">M {{ settlement.mobile_collected|floatformat:2 }}</td></tr>
+            <tr><td>Card</td><td class="amount text-end">M {{ settlement.card_collected|floatformat:2 }}</td></tr>
+            <tr><td>Advance Income</td><td class="amount text-end">M {{ settlement.advance_income|floatformat:2 }}</td></tr>
+            <tr><td>Other Income</td><td class="amount text-end">M {{ settlement.other_income|floatformat:2 }}</td></tr>
+            <tr class="table-light"><th>Total Income</th><th class="amount text-end">M {{ settlement.total_income|floatformat:2 }}</th></tr>
+        </table>
+
+        <h5>Expenses</h5>
+        <table class="table table-sm table-bordered">
+            <tr><td>Fuel Cost</td><td class="amount text-end">M {{ settlement.fuel_cost|floatformat:2 }}</td></tr>
+            <tr><td>Toll Cost</td><td class="amount text-end">M {{ settlement.toll_cost|floatformat:2 }}</td></tr>
+            <tr><td>Border Fee</td><td class="amount text-end">M {{ settlement.border_fee|floatformat:2 }}</td></tr>
+            <tr><td>Repair Cost</td><td class="amount text-end">M {{ settlement.repair_cost|floatformat:2 }}</td></tr>
+            <tr><td>Driver Allowance</td><td class="amount text-end">M {{ settlement.driver_allowance|floatformat:2 }}</td></tr>
+            <tr><td>Other Expenses</td><td class="amount text-end">M {{ settlement.other_expenses|floatformat:2 }}</td></tr>
+            <tr class="table-light"><th>Total Expenses</th><th class="amount text-end">M {{ settlement.total_expenses|floatformat:2 }}</th></tr>
+        </table>
+
+        <table class="table table-bordered">
+            <tr class="table-light"><th>Gross Profit</th><th class="amount text-end">M {{ settlement.gross_profit|floatformat:2 }}</th></tr>
+            {% if settlement.status == 'approved' %}
+            <tr class="table-success"><th>Driver Pay</th><th class="amount text-end">M {{ settlement.driver_pay|floatformat:2 }}</th></tr>
+            <tr class="table-warning"><th>Owner Collected</th><th class="amount text-end">M {{ settlement.total_owner_collected|floatformat:2 }}</th></tr>
+            {% if settlement.operating_model == 'quota' %}
+            <tr><td>Daily Quota</td><td class="amount text-end">M {{ settlement.daily_quota|floatformat:2 }}</td></tr>
+            <tr><td>Surplus/Shortfall</td><td class="amount text-end">M {{ settlement.surplus_shortfall|floatformat:2 }}</td></tr>
+            <tr><td>New Debt</td><td class="amount text-end">M {{ settlement.new_debt|floatformat:2 }}</td></tr>
+            {% endif %}
+            {% endif %}
+        </table>
+
+        {% if settlement.driver_notes or settlement.owner_notes %}
+        <div class="mt-3">
+            {% if settlement.driver_notes %}
+            <p><strong>Driver Notes:</strong> {{ settlement.driver_notes }}</p>
+            {% endif %}
+            {% if settlement.owner_notes %}
+            <p><strong>Owner Notes:</strong> {{ settlement.owner_notes }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="row mt-5">
+            <div class="col-6 text-center">
+                <p>__________________________<br>Driver Signature</p>
+            </div>
+            <div class="col-6 text-center">
+                <p>__________________________<br>Owner Signature</p>
+            </div>
+        </div>
+
+        <div class="text-center mt-3" style="font-size: 0.8em; color: #666;">
+            <p>Generated on {% now "d F Y, H:i" %} | Taxi Accounting System — Lesotho</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

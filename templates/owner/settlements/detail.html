@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% block title %}Settlement Detail{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-receipt"></i> Settlement #{{ settlement.id }}</h2>
+    <div>
+        <a href="{% url 'owner_settlement_list' %}" class="btn btn-outline-secondary"><i class="bi bi-list"></i> All Settlements</a>
+        <a href="{% url 'owner_settlement_edit' settlement.id %}" class="btn btn-outline-warning"><i class="bi bi-pencil"></i> Edit</a>
+        <a href="{% url 'owner_settlement_delete' settlement.id %}" class="btn btn-outline-danger"><i class="bi bi-trash"></i> Delete</a>
+    </div>
+</div>
+
+<!-- Status Banner -->
+<div class="alert {% if settlement.status == 'approved' %}alert-success{% elif settlement.status == 'submitted' %}alert-warning{% elif settlement.status == 'rejected' %}alert-danger{% else %}alert-secondary{% endif %}">
+    <strong>Status: {{ settlement.get_status_display }}</strong>
+    {% if settlement.status == 'submitted' %} — Submitted on {{ settlement.submitted_at|date:"d M Y, H:i" }}{% endif %}
+    {% if settlement.status == 'approved' %} — Approved on {{ settlement.approved_at|date:"d M Y, H:i" }}{% if settlement.approved_by %} by {{ settlement.approved_by.username }}{% endif %}{% endif %}
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-info text-white"><i class="bi bi-info-circle"></i> Basic Info</div>
+            <div class="card-body">
+                <table class="table">
+                    <tr><th>Date</th><td>{{ settlement.date|date:"d F Y" }}</td></tr>
+                    <tr><th>Period</th><td>{{ settlement.get_settlement_period_display }}</td></tr>
+                    {% if settlement.settlement_period == 'weekly' %}
+                    <tr><th>Week</th><td>{{ settlement.week_start|date:"d M" }} – {{ settlement.week_end|date:"d M Y" }}</td></tr>
+                    {% endif %}
+                    <tr><th>Driver</th><td>{{ settlement.driver.name }}</td></tr>
+                    <tr><th>Vehicle</th><td>{{ settlement.vehicle.name }} ({{ settlement.vehicle.plate }})</td></tr>
+                    <tr><th>Operating Model</th><td><span class="badge bg-info">{{ settlement.operating_model|title }}</span></td></tr>
+                    <tr><th>Payment Method</th><td>{{ settlement.get_payment_method_display }}</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-success text-white"><i class="bi bi-calculator"></i> Financial Summary</div>
+            <div class="card-body">
+                <table class="table">
+                    <tr><th>Total Income</th><td class="amount">M {{ settlement.total_income|floatformat:2 }}</td></tr>
+                    <tr><th>Total Expenses</th><td class="amount">M {{ settlement.total_expenses|floatformat:2 }}</td></tr>
+                    <tr class="table-primary"><th>Gross Profit</th><th class="amount">M {{ settlement.gross_profit|floatformat:2 }}</th></tr>
+                    {% if settlement.status == 'approved' %}
+                    <tr class="table-success"><th>Driver Pay</th><th class="amount">M {{ settlement.driver_pay|floatformat:2 }}</th></tr>
+                    <tr class="table-warning"><th>Owner Collected</th><th class="amount">M {{ settlement.total_owner_collected|floatformat:2 }}</th></tr>
+                    {% else %}
+                    <tr><td colspan="2" class="text-muted small">Calculations applied upon approval.</td></tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-success text-white"><i class="bi bi-arrow-up"></i> Income Details</div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr><td>Cash Collected</td><td class="amount">M {{ settlement.cash_collected|floatformat:2 }}</td></tr>
+                    <tr><td>Mobile/EcoCash</td><td class="amount">M {{ settlement.mobile_collected|floatformat:2 }}</td></tr>
+                    <tr><td>Card</td><td class="amount">M {{ settlement.card_collected|floatformat:2 }}</td></tr>
+                    <tr><td>Advance Income</td><td class="amount">M {{ settlement.advance_income|floatformat:2 }}</td></tr>
+                    <tr><td>Other Income</td><td class="amount">M {{ settlement.other_income|floatformat:2 }}</td></tr>
+                    <tr class="table-success"><th>Total Income</th><th class="amount">M {{ settlement.total_income|floatformat:2 }}</th></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-danger text-white"><i class="bi bi-arrow-down"></i> Expense Details</div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr><td>Fuel Cost</td><td class="amount">M {{ settlement.fuel_cost|floatformat:2 }}</td></tr>
+                    <tr><td>Toll Cost</td><td class="amount">M {{ settlement.toll_cost|floatformat:2 }}</td></tr>
+                    <tr><td>Border Fee</td><td class="amount">M {{ settlement.border_fee|floatformat:2 }}</td></tr>
+                    <tr><td>Repair Cost</td><td class="amount">M {{ settlement.repair_cost|floatformat:2 }}</td></tr>
+                    <tr><td>Driver Allowance</td><td class="amount">M {{ settlement.driver_allowance|floatformat:2 }}</td></tr>
+                    <tr><td>Other Expenses</td><td class="amount">M {{ settlement.other_expenses|floatformat:2 }}</td></tr>
+                    <tr class="table-danger"><th>Total Expenses</th><th class="amount">M {{ settlement.total_expenses|floatformat:2 }}</th></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if settlement.status == 'approved' and settlement.operating_model == 'quota' %}
+<div class="card mb-4">
+    <div class="card-header bg-warning"><i class="bi bi-exclamation-triangle"></i> Quota System Details</div>
+    <div class="card-body">
+        <table class="table">
+            <tr><th>Daily Quota</th><td class="amount">M {{ settlement.daily_quota|floatformat:2 }}</td></tr>
+            <tr><th>Surplus/Shortfall</th><td class="amount {% if settlement.surplus_shortfall >= 0 %}text-success{% else %}text-danger{% endif %}">M {{ settlement.surplus_shortfall|floatformat:2 }}</td></tr>
+            <tr><th>Previous Debt</th><td class="amount">M {{ settlement.previous_debt|floatformat:2 }}</td></tr>
+            <tr><th>Debt Repaid</th><td class="amount text-success">M {{ settlement.debt_repaid|floatformat:2 }}</td></tr>
+            <tr><th>New Debt</th><td class="amount text-danger">M {{ settlement.new_debt|floatformat:2 }}</td></tr>
+            <tr><th>Debt Status</th><td><span class="badge bg-{% if settlement.debt_status == 'clear' %}success{% elif settlement.debt_status == 'owing' %}warning{% else %}danger{% endif %}">{{ settlement.debt_status|title }}</span></td></tr>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if settlement.status == 'approved' and settlement.operating_model == 'salary' %}
+<div class="card mb-4">
+    <div class="card-header bg-success text-white"><i class="bi bi-cash-coin"></i> Salary System Details</div>
+    <div class="card-body">
+        <table class="table">
+            <tr><th>Daily Salary Earned</th><td class="amount">M {{ settlement.daily_salary_earned|floatformat:2 }}</td></tr>
+            <tr><th>Monthly Salary Accumulated</th><td class="amount">M {{ settlement.monthly_salary_accumulated|floatformat:2 }}</td></tr>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if settlement.status == 'approved' and settlement.operating_model == 'percentage' %}
+<div class="card mb-4">
+    <div class="card-header bg-warning text-white"><i class="bi bi-percent"></i> Percentage System Details</div>
+    <div class="card-body">
+        <table class="table">
+            <tr><th>Driver Percentage</th><td>{{ settlement.driver_percentage|floatformat:0 }}%</td></tr>
+            <tr><th>Driver Amount</th><td class="amount text-success">M {{ settlement.driver_percentage_amount|floatformat:2 }}</td></tr>
+            <tr><th>Owner Amount</th><td class="amount">M {{ settlement.owner_percentage_amount|floatformat:2 }}</td></tr>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if settlement.status == 'approved' and settlement.operating_model == 'contract' %}
+<div class="card mb-4">
+    <div class="card-header bg-info text-white"><i class="bi bi-file-earmark-text"></i> Contract System Details</div>
+    <div class="card-body">
+        <table class="table">
+            <tr><th>Target</th><td class="amount">M {{ settlement.contract_target|floatformat:2 }}</td></tr>
+            <tr><th>Monthly Gross</th><td class="amount">M {{ settlement.contract_monthly_gross|floatformat:2 }}</td></tr>
+            <tr><th>Remaining Target</th><td class="amount">M {{ settlement.contract_remaining_target|floatformat:2 }}</td></tr>
+            <tr><th>Success</th><td>{% if settlement.contract_is_success %}<span class="badge bg-success">Yes</span>{% else %}<span class="badge bg-danger">No</span>{% endif %}</td></tr>
+            <tr><th>Driver Bonus</th><td class="amount">M {{ settlement.contract_driver_bonus|floatformat:2 }}</td></tr>
+            <tr><th>Driver Pay</th><td class="amount text-success">M {{ settlement.contract_driver_pay|floatformat:2 }}</td></tr>
+            <tr><th>Owner Pay</th><td class="amount">M {{ settlement.contract_owner_pay|floatformat:2 }}</td></tr>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if settlement.driver_notes or settlement.owner_notes or settlement.notes %}
+<div class="card mb-4">
+    <div class="card-header bg-light"><i class="bi bi-chat-text"></i> Notes</div>
+    <div class="card-body">
+        {% if settlement.notes %}<p><strong>General Notes:</strong> {{ settlement.notes }}</p>{% endif %}
+        {% if settlement.driver_notes %}<p><strong>Driver Notes:</strong> {{ settlement.driver_notes }}</p>{% endif %}
+        {% if settlement.owner_notes %}<p><strong>Owner Notes:</strong> {{ settlement.owner_notes }}</p>{% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

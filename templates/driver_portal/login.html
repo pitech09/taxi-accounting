@@ -1,0 +1,43 @@
+{% extends 'driver_portal/base_driver.html' %}
+{% block title %}Driver Login{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white text-center py-4">
+                <h3><i class="bi bi-person-badge"></i> Driver Portal</h3>
+                <p class="mb-0">Taxi Accounting System</p>
+            </div>
+            <div class="card-body p-4">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Driver Code</label>
+                        <input type="text" name="driver_code" class="form-control form-control-lg" required placeholder="Enter your 4-digit code" maxlength="4" pattern="\d{4}" inputmode="numeric">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" name="password" class="form-control form-control-lg" required placeholder="Enter your password">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg w-100">
+                        <i class="bi bi-box-arrow-in-right"></i> Login
+                    </button>
+                </form>
+                <div class="mt-3 text-center text-muted small">
+                    <i class="bi bi-info-circle"></i> Use your 4-digit driver code, not your ID number.
+                </div>
+            </div>
+            <div class="card-footer text-center py-3">
+                <a href="{% url 'login' %}" class="text-decoration-none">
+                    <i class="bi bi-person-gear"></i> Owner Login
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}Edit Driver{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-pencil"></i> Edit Driver: {{ driver.name }}</h2>
+    <a href="{% url 'owner_driver_list' %}" class="btn btn-outline-secondary">Back</a>
+</div>
+<div class="card">
+    <div class="card-header bg-primary text-white">Driver Details</div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row mb-3">
+                <div class="col-md-4"><label class="form-label">Name *</label><input type="text" name="name" class="form-control" value="{{ driver.name }}" required></div>
+                <div class="col-md-4"><label class="form-label">Driver Code</label><input type="text" name="driver_code" class="form-control" value="{{ driver.driver_code|default:'' }}" maxlength="4" pattern="\d{4}" placeholder="Auto-generated if blank"></div>
+                <div class="col-md-4"><label class="form-label">Phone *</label><input type="text" name="phone" class="form-control" value="{{ driver.phone }}" required></div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-4"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="{{ driver.email|default:'' }}"></div>
+                <div class="col-md-4"><label class="form-label">ID Number</label><input type="text" name="id_number" class="form-control" value="{{ driver.id_number|default:'' }}"></div>
+                <div class="col-md-4"><label class="form-label">License Type</label><input type="text" name="license_type" class="form-control" value="{{ driver.license_type|default:'' }}"></div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-4"><label class="form-label">License Number</label><input type="text" name="license_number" class="form-control" value="{{ driver.license_number|default:'' }}"></div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-4"><label class="form-label">Address</label><textarea name="address" class="form-control" rows="2">{{ driver.address|default:'' }}</textarea></div>
+                <div class="col-md-4"><label class="form-label">Assign Vehicle</label>
+                    <select name="vehicle" class="form-select">
+                        <option value="">-- No Vehicle --</option>
+                        {% for v in vehicles %}
+                        <option value="{{ v.id }}" {% if driver.vehicle and driver.vehicle.id == v.id %}selected{% endif %}>{{ v.name }} ({{ v.plate }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-check"><input type="checkbox" name="is_active" class="form-check-input" {% if driver.is_active %}checked{% endif %}><label class="form-check-label">Active</label></div>
+                    <div class="form-check"><input type="checkbox" name="is_portal_enabled" class="form-check-input" {% if driver.is_portal_enabled %}checked{% endif %}><label class="form-check-label">Portal Enabled</label></div>
+                    <label class="form-label mt-2">Portal Password</label><input type="text" name="portal_password" class="form-control" placeholder="Leave blank to keep current">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Update Driver</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

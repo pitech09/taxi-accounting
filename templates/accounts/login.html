@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Taxi Accounting System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a365d 0%, #2d4a7a 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+        }
+        .login-card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .login-header {
+            background: linear-gradient(135deg, #1a365d, #2d4a7a);
+            border-radius: 15px 15px 0 0;
+            padding: 30px;
+            text-align: center;
+            color: white;
+        }
+        .login-header h2 { margin: 0; font-weight: 700; }
+        .login-header p { margin: 5px 0 0; opacity: 0.8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-5">
+                <div class="card login-card">
+                    <div class="login-header">
+                        <h2><i class="bi bi-truck"></i> Taxi Accounting</h2>
+                        <p>Owner Portal Login</p>
+                    </div>
+                    <div class="card-body p-4">
+                        {% if form.errors %}
+                            <div class="alert alert-danger">Invalid username or password</div>
+                        {% endif %}
+                        <form method="post">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label class="form-label">Username</label>
+                                <input type="text" name="username" class="form-control form-control-lg" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Password</label>
+                                <input type="password" name="password" class="form-control form-control-lg" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-lg w-100">
+                                <i class="bi bi-box-arrow-in-right"></i> Login
+                            </button>
+                        </form>
+                        <hr>
+                        <div class="text-center">
+                            <a href="/driver/login/" class="btn btn-outline-primary">
+                                <i class="bi bi-person-badge"></i> Driver Portal
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+</body>
+</html>

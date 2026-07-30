@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+{% block title %}Cash Flow Statement{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-arrow-left-right"></i> Cash Flow Statement</h2>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Period</label>
+                <select name="period" class="form-select">
+                    <option value="month" {% if period == 'month' %}selected{% endif %}>This Month</option>
+                    <option value="quarter" {% if period == 'quarter' %}selected{% endif %}>This Quarter</option>
+                    <option value="year" {% if period == 'year' %}selected{% endif %}>This Year</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <button type="submit" class="btn btn-outline-primary w-100"><i class="bi bi-arrow-repeat"></i></button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <i class="bi bi-graph-up"></i> Cash Flow Trend - {{ period_label }}
+    </div>
+    <div class="card-body">
+        <canvas id="cashFlowTrendChart" height="100"></canvas>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-arrow-down-left-circle"></i> Cash Inflows
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <th>Settlement Collections</th>
+                        <td class="text-end amount">M {{ settlement_collections|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <th>Other Income</th>
+                        <td class="text-end amount">M {{ other_income|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <th>Bank Withdrawals</th>
+                        <td class="text-end amount">M {{ bank_withdrawals|floatformat:2 }}</td>
+                    </tr>
+                    <tr class="table-success">
+                        <th><strong>Total Inflows</strong></th>
+                        <td class="text-end amount"><strong>M {{ total_inflows|floatformat:2 }}</strong></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-danger text-white">
+                <i class="bi bi-arrow-up-right-circle"></i> Cash Outflows
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <th>Business Expenses</th>
+                        <td class="text-end amount">M {{ expenses|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <th>Bank Deposits</th>
+                        <td class="text-end amount">M {{ bank_deposits|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <th>Cash Withdrawals</th>
+                        <td class="text-end amount">M {{ withdrawals|floatformat:2 }}</td>
+                    </tr>
+                    <tr class="table-danger">
+                        <th><strong>Total Outflows</strong></th>
+                        <td class="text-end amount"><strong>M {{ total_outflows|floatformat:2 }}</strong></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card stat-card text-center">
+            <div class="card-body">
+                <small class="text-muted">Opening Balance</small>
+                <h5 class="amount">M {{ opening_balance|floatformat:2 }}</h5>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card text-center">
+            <div class="card-body">
+                <small class="text-muted">Net Cash Flow</small>
+                <h5 class="amount {% if net_cash_flow >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    {% if net_cash_flow >= 0 %}+{% endif %}M {{ net_cash_flow|floatformat:2 }}
+                </h5>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card text-center">
+            <div class="card-body">
+                <small class="text-muted">Closing Balance</small>
+                <h5 class="amount text-primary">M {{ closing_balance|floatformat:2 }}</h5>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    const ctx = document.getElementById('cashFlowTrendChart').getContext('2d');
+    const chartLabels = {{ chart_labels|safe }};
+    const chartData = {{ chart_data|safe }};
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                label: 'Net Cash Flow',
+                data: chartData,
+                backgroundColor: chartData.map(v => v >= 0 ? 'rgba(28, 200, 138, 0.2)' : 'rgba(231, 74, 59, 0.2)'),
+                borderColor: chartData.map(v => v >= 0 ? 'rgba(28, 200, 138, 1)' : 'rgba(231, 74, 59, 1)'),
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    ticks: {
+                        callback: function(value) { return 'M ' + value; }
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

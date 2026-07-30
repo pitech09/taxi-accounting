@@ -1,0 +1,71 @@
+{% extends 'driver_portal/base_driver.html' %}
+{% block title %}My Profile{% endblock %}
+{% block content %}
+<h2><i class="bi bi-person"></i> My Profile</h2>
+
+<div class="card mt-3">
+    <div class="card-header bg-primary text-white">
+        <i class="bi bi-person-badge"></i> Driver Information
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <table class="table">
+                    <tr><th>Name</th><td>{{ driver.name }}</td></tr>
+                    <tr><th>Phone</th><td>{{ driver.phone }}</td></tr>
+                    <tr><th>Email</th><td>{{ driver.email|default:'N/A' }}</td></tr>
+                    <tr><th>ID Number</th><td>{{ driver.id_number|default:'N/A' }}</td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <table class="table">
+                    <tr><th>License Type</th><td>{{ driver.license_type|default:'N/A' }}</td></tr>
+                    <tr><th>License Number</th><td>{{ driver.license_number|default:'N/A' }}</td></tr>
+                    <tr><th>License Expiry</th><td>{{ driver.license_expiry|date:"d M Y"|default:'N/A' }}</td></tr>
+                    <tr><th>Hire Date</th><td>{{ driver.hire_date|date:"d M Y" }}</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header bg-info text-white">
+        <i class="bi bi-car-front"></i> Vehicle Assignment
+    </div>
+    <div class="card-body">
+        {% if driver.vehicle %}
+        <table class="table">
+            <tr><th>Vehicle</th><td>{{ driver.vehicle.name }}</td></tr>
+            <tr><th>Plate</th><td>{{ driver.vehicle.plate }}</td></tr>
+            <tr><th>Type</th><td>{{ driver.vehicle.get_vehicle_type_display }}</td></tr>
+            <tr><th>Seats</th><td>{{ driver.vehicle.seats }}</td></tr>
+            <tr><th>Operating Model</th><td>{{ driver.vehicle.model_display }}</td></tr>
+        </table>
+        {% else %}
+        <p class="text-muted">No vehicle assigned</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header bg-secondary text-white">
+        <i class="bi bi-gear"></i> Operating Model Details
+    </div>
+    <div class="card-body">
+        <table class="table">
+            <tr><th>Model</th><td>{{ driver.model_display }}</td></tr>
+            {% if driver.vehicle.operating_model == 'quota' %}
+            <tr><th>Daily Quota</th><td>M {{ driver.effective_quota|floatformat:2 }}</td></tr>
+            {% elif driver.vehicle.operating_model == 'salary' %}
+            <tr><th>Monthly Salary</th><td>M {{ driver.effective_salary|floatformat:2 }}</td></tr>
+            {% elif driver.vehicle.operating_model == 'percentage' %}
+            <tr><th>Driver %</th><td>{{ driver.effective_percentage|floatformat:0 }}%</td></tr>
+            {% elif driver.vehicle.operating_model == 'contract' %}
+            <tr><th>Target</th><td>M {{ driver.effective_contract_target|floatformat:2 }}</td></tr>
+            <tr><th>Failure %</th><td>{{ driver.effective_contract_failure_percentage|floatformat:0 }}%</td></tr>
+            {% endif %}
+        </table>
+    </div>
+</div>
+{% endblock %}

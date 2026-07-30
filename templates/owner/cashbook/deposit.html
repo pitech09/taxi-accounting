@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-bank"></i> {{ title }}
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    {% if form.errors %}
+                    <div class="alert alert-danger">Please correct the errors below.</div>
+                    {% endif %}
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Bank Account <span class="text-danger">*</span></label>
+                            {{ form.bank_account }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Amount (M) <span class="text-danger">*</span></label>
+                            {{ form.amount }}
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Date <span class="text-danger">*</span></label>
+                            {{ form.date }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Reference (Deposit Slip #)</label>
+                            {{ form.reference }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        {{ form.notes }}
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'owner_cashbook_dashboard' %}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Record Deposit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <i class="bi bi-info-circle"></i> Deposit Info
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="text-muted">Current Cash in Hand</label>
+                    <h4 class="amount">M {{ cash_in_hand|floatformat:2 }}</h4>
+                </div>
+                <hr>
+                <div class="small text-muted">
+                    <p><i class="bi bi-arrow-down"></i> Cash in Hand will <strong>decrease</strong></p>
+                    <p><i class="bi bi-arrow-up"></i> Bank Account balance will <strong>increase</strong></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
