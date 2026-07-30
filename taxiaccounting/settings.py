@@ -3,12 +3,16 @@ Django settings for taxiaccounting project.
 """
 from pathlib import Path
 import os
+from dotenv import load_dotenv
 import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load environment variables from .env file
+load_dotenv()
+
 # Security
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-=2(p8zkg0uzw4%g!+02s9$f7cb56ei18#&912qyfdq#*b1to&c')
+SECRET_KEY = os.environ.get('SECRET_KEY')
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') + ['localhost', '127.0.0.1']
 
@@ -67,12 +71,12 @@ WSGI_APPLICATION = 'taxiaccounting.wsgi.application'
 
 DATABASES = {
     'default': dj_database_url.config(
-        default='postgresql://postgres.jelieshshpmbcpmzdavn:jX7JvjqG4FTEEJe7@aws-0-eu-west-1.pooler.supabase.com:6543/postgres',
+        default=os.environ.get('DATABASE_URL'),
         conn_max_age=600
     )
 }
 
-# Note: In production, consider setting DATABASE_URL environment variable instead of hardcoding.
+# Note: Set DATABASE_URL environment variable in .env or production environment.
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
