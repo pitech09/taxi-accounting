@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # Django and Core
 Django==5.0.4
 gunicorn==22.0.0
@@ -38,4 +38,4 @@ django-cors-headers
 reportlab
 openpyxl
 python-dotenv
->>>>>>> 64e423b7ca903465804b98ca16d473e9acfe4f87
+
