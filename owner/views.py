@@ -9,6 +9,7 @@ from django.db.models import Sum, Q
 from django.utils import timezone
 from datetime import date, datetime, timedelta
 import calendar
+from decimal import Decimal
 
 from vehicles.models import Vehicle
 from drivers.models import Driver
@@ -17,6 +18,16 @@ from cashbook.models import CashInHand, BankAccount, CashTransaction
 from accounts.models import SystemSettings
 from contracts.models import MonthlyContractSummary
 from settlements.forms import SettlementApprovalForm
+
+
+def _to_decimal(value, default=Decimal('0.00')):
+    """Safely convert a POST string value to Decimal."""
+    if value is None or value == '':
+        return default
+    try:
+        return Decimal(str(value))
+    except Exception:
+        return default
 
 
 def is_owner(user):
@@ -248,13 +259,13 @@ def settlement_add(request):
             settlement_period=request.POST.get('settlement_period', 'daily'),
             week_start=request.POST.get('week_start') or None,
             week_end=request.POST.get('week_end') or None,
-            cash_collected=request.POST.get('cash_collected', 0),
-            mobile_collected=request.POST.get('mobile_collected', 0),
-            card_collected=request.POST.get('card_collected', 0),
-            fuel_expense=request.POST.get('fuel_expense', 0),
-            maintenance_expense=request.POST.get('maintenance_expense', 0),
-            toll_expense=request.POST.get('toll_expense', 0),
-            other_expense=request.POST.get('other_expense', 0),
+            cash_collected=_to_decimal(request.POST.get('cash_collected')),
+            mobile_collected=_to_decimal(request.POST.get('mobile_collected')),
+            card_collected=_to_decimal(request.POST.get('card_collected')),
+            fuel_expense=_to_decimal(request.POST.get('fuel_expense')),
+            maintenance_expense=_to_decimal(request.POST.get('maintenance_expense')),
+            toll_expense=_to_decimal(request.POST.get('toll_expense')),
+            other_expense=_to_decimal(request.POST.get('other_expense')),
             other_expense_desc=request.POST.get('other_expense_desc', ''),
             driver_notes=request.POST.get('driver_notes', ''),
             status='approved',
@@ -284,13 +295,13 @@ def settlement_edit(request, settlement_id):
         settlement.settlement_period = request.POST.get('settlement_period', 'daily')
         settlement.week_start = request.POST.get('week_start') or None
         settlement.week_end = request.POST.get('week_end') or None
-        settlement.cash_collected = request.POST.get('cash_collected', 0)
-        settlement.mobile_collected = request.POST.get('mobile_collected', 0)
-        settlement.card_collected = request.POST.get('card_collected', 0)
-        settlement.fuel_expense = request.POST.get('fuel_expense', 0)
-        settlement.maintenance_expense = request.POST.get('maintenance_expense', 0)
-        settlement.toll_expense = request.POST.get('toll_expense', 0)
-        settlement.other_expense = request.POST.get('other_expense', 0)
+        settlement.cash_collected = _to_decimal(request.POST.get('cash_collected'))
+        settlement.mobile_collected = _to_decimal(request.POST.get('mobile_collected'))
+        settlement.card_collected = _to_decimal(request.POST.get('card_collected'))
+        settlement.fuel_expense = _to_decimal(request.POST.get('fuel_expense'))
+        settlement.maintenance_expense = _to_decimal(request.POST.get('maintenance_expense'))
+        settlement.toll_expense = _to_decimal(request.POST.get('toll_expense'))
+        settlement.other_expense = _to_decimal(request.POST.get('other_expense'))
         settlement.other_expense_desc = request.POST.get('other_expense_desc', '')
         settlement.driver_notes = request.POST.get('driver_notes', '')
         settlement.save()
@@ -337,31 +348,64 @@ def settlement_export_csv(request):
 # ------------------------------------------------------------------
 @owner_required
 def pending_approvals(request):
+    # Get all submitted settlements (pending)
     settlements = DailySettlement.objects.filter(status='submitted').order_by('-submitted_at')
-    return render(request, 'owner/approvals/pending.html', {'settlements': settlements})
 
+    # Pre-run calculations for each to preview driver_pay & owner_collection
+    for s in settlements:
+        s._run_calculations()   # fills in all calculated fields (no save)
+
+    return render(request, 'owner/approvals/pending.html', {'settlements': settlements})
 
 @owner_required
 def review_settlement(request, settlement_id):
     settlement = get_object_or_404(DailySettlement, id=settlement_id)
+
+    # Prevent re-approving
+    if settlement.status == 'approved':
+        messages.warning(request, 'This settlement is already approved.')
+        return redirect('owner_pending_approvals')
+
+    # ---- NEW: Run calculations to preview (does not save) ----
+    settlement._run_calculations()  # Populates all driver_pay, total_owner_collected, etc.
+
     if request.method == 'POST':
-        form = SettlementApprovalForm(request.POST, instance=settlement)
+        form = SettlementApprovalForm(request.POST)
         if form.is_valid():
-            settlement = form.save(commit=False)
-            if settlement.status == 'approved':
-                settlement.approved_by = request.user
+            action = form.cleaned_data['action']
+            owner_notes = form.cleaned_data.get('owner_notes', '')
+
+            if action == 'approve':
+                settlement.status = 'approved'
                 settlement.approved_at = timezone.now()
-            settlement.save()
-            messages.success(request, f'Settlement {settlement.status} successfully.')
+                settlement.approved_by = request.user
+                settlement.owner_notes = owner_notes
+                # save() will recalculate and create cash transaction
+                settlement.save()
+                messages.success(
+                    request,
+                    f'Settlement for {settlement.driver.name} approved! '
+                    f'Owner collection: M {settlement.total_owner_collected:.2f} added to cash.'
+                )
+            else:  # reject
+                settlement.status = 'rejected'
+                settlement.owner_notes = owner_notes
+                settlement.save()
+                messages.warning(
+                    request,
+                    f'Settlement for {settlement.driver.name} rejected.'
+                )
             return redirect('owner_pending_approvals')
     else:
-        form = SettlementApprovalForm(instance=settlement)
-    return render(request, 'owner/approvals/review.html', {
+        # GET – pre-fill owner_notes
+        form = SettlementApprovalForm(initial={'owner_notes': settlement.owner_notes})
+
+    context = {
         'settlement': settlement,
         'form': form,
-    })
-
-
+        'model_display': settlement.get_operating_model_display(),
+    }
+    return render(request, 'owner/approvals/review.html', context)
 # ------------------------------------------------------------------
 # Contract management
 # ------------------------------------------------------------------

@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.utils import timezone
 from datetime import date, timedelta
 import calendar
-
+from django.db.models import Sum
 from drivers.models import Driver
 from settlements.models import DailySettlement
 from settlements.forms import DailySettlementForm
@@ -77,6 +77,7 @@ def driver_login_required(view_func):
 # ------------------------------------------------------------------
 # Dashboard
 # ------------------------------------------------------------------
+
 @driver_login_required
 def dashboard(request):
     """Driver dashboard showing vehicle, model, recent settlements, quick actions."""
@@ -92,15 +93,26 @@ def dashboard(request):
     # Debt balance (for quota model)
     debt_balance = driver.debt_balance
 
+    # ---- Monthly aggregates (new) ----
+    today = date.today()
+    month_start = today.replace(day=1)
+    month_settlements = driver.settlements.filter(
+        status='approved',
+        date__gte=month_start,
+        date__lte=today
+    )
+    month_income = month_settlements.aggregate(total=Sum('total_income'))['total'] or 0
+    month_pay = month_settlements.aggregate(total=Sum('driver_pay'))['total'] or 0
+    month_expenses = month_settlements.aggregate(total=Sum('total_expenses'))['total'] or 0
+
     # Contract progress (for contract model)
     contract_progress = None
     if driver.vehicle and driver.vehicle.operating_model == 'contract':
-        today = date.today()
-        month_settlements = driver.settlements.filter(
+        month_settlements_contract = driver.settlements.filter(
             status='approved', operating_model='contract',
             date__year=today.year, date__month=today.month
         )
-        monthly_gross = sum(s.total_income for s in month_settlements)
+        monthly_gross = sum(s.total_income for s in month_settlements_contract)
         target = driver.effective_contract_target
         progress = (monthly_gross / target * 100) if target > 0 else 0
         _, days_in_month = calendar.monthrange(today.year, today.month)
@@ -119,6 +131,9 @@ def dashboard(request):
         'pending_count': pending_count,
         'debt_balance': debt_balance,
         'contract_progress': contract_progress,
+        'month_income': month_income,         # new
+        'month_pay': month_pay,               # new
+        'month_expenses': month_expenses,     # new
     }
     return render(request, 'driver_portal/dashboard.html', context)
 
@@ -206,12 +221,13 @@ def settlement_edit(request, settlement_id):
 
 @driver_login_required
 def settlement_print(request, settlement_id):
-    """Print-friendly settlement slip."""
     driver = request.driver
     settlement = get_object_or_404(DailySettlement, id=settlement_id, driver=driver)
+    settings = SystemSettings.get_settings()  # add this line
     return render(request, 'driver_portal/settlement_print.html', {
         'driver': driver,
         'settlement': settlement,
+        'settings': settings,  # add this
     })
 
 

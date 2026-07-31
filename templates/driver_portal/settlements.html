@@ -1,42 +1,82 @@
 {% extends 'driver_portal/base_driver.html' %}
+{% load static %}
+
 {% block title %}My Settlements{% endblock %}
+
 {% block content %}
-<h2><i class="bi bi-cash-stack"></i> My Settlement History</h2>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-cash-stack"></i> My Settlement History</h2>
+    <a href="{% url 'driver_settlement_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> New Settlement
+    </a>
+</div>
 
 <div class="card mt-3">
     <div class="card-body">
+        {% if settlements %}
         <div class="table-responsive">
-            <table class="table table-striped">
+            <table class="table table-striped table-hover">
                 <thead>
                     <tr>
                         <th>Date</th>
-                        <th>Cash</th>
-                        <th>Mobile</th>
-                        <th>Card</th>
+                        <th>Vehicle</th>
+                        <th>Period</th>
                         <th>Total Income</th>
-                        <th>Expenses</th>
+                        <th>Total Expenses</th>
                         <th>Your Pay</th>
+                        <th>Status</th>
                         <th>Notes</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for s in settlements %}
                     <tr>
-                        <td>{{ s.date|date:"d M Y" }}</td>
-                        <td>M {{ s.cash_collected|floatformat:2 }}</td>
-                        <td>M {{ s.mobile_collected|floatformat:2 }}</td>
-                        <td>M {{ s.card_collected|floatformat:2 }}</td>
+                        <td>
+                            <a href="{% url 'driver_settlement_view' s.id %}">
+                                {{ s.date|date:"d M Y" }}
+                            </a>
+                        </td>
+                        <td>{{ s.vehicle.name }}</td>
+                        <td>{{ s.get_settlement_period_display }}</td>
                         <td class="amount">M {{ s.total_income|floatformat:2 }}</td>
                         <td class="amount">M {{ s.total_expenses|floatformat:2 }}</td>
-                        <td class="amount text-success">M {{ s.driver_pay|floatformat:2 }}</td>
-                        <td>{{ s.notes|truncatewords:5 }}</td>
+                        <td class="amount text-success fw-bold">M {{ s.driver_pay|floatformat:2 }}</td>
+                        <td>
+                            <span class="badge bg-{% if s.status == 'approved' %}success{% elif s.status == 'submitted' %}warning{% elif s.status == 'rejected' %}danger{% else %}secondary{% endif %}">
+                                {{ s.get_status_display }}
+                            </span>
+                        </td>
+                        <td>{{ s.driver_notes|truncatewords:5|default:"—" }}</td>
                     </tr>
-                    {% empty %}
-                    <tr><td colspan="8" class="text-center text-muted">No settlements found</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        <!-- Pagination (if using page_obj) -->
+        {% if is_paginated %}
+        <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page=1">&laquo; first</a></li>
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">previous</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
+                {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">next</a></li>
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">last &raquo;</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        {% else %}
+        <div class="text-center text-muted py-4">
+            <i class="bi bi-inbox fs-1 d-block"></i>
+            <p>You have no settlements yet.</p>
+            <a href="{% url 'driver_settlement_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Submit Your First Settlement
+            </a>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

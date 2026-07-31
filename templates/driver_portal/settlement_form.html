@@ -5,15 +5,35 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-{% if edit_mode %}pencil{% else %}plus-circle{% endif %}"></i> {% if edit_mode %}Edit Settlement{% else %}New Settlement{% endif %}</h2>
-    <a href="{% url 'driver_settlements' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+    <a href="{% url 'driver_settlements' %}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Back
+    </a>
 </div>
 
-<form method="post" class="settlement-form">
+{% if form.errors %}
+<div class="alert alert-danger">
+    <strong><i class="bi bi-exclamation-triangle"></i> Please correct the following errors:</strong>
+    <ul class="mb-0">
+        {% for field, errors in form.errors.items %}
+            {% for error in errors %}
+                <li>{{ field|capfirst }}: {{ error }}</li>
+            {% endfor %}
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<form method="post" class="settlement-form" id="settlementForm">
     {% csrf_token %}
+    
+    <!-- Hidden driver and vehicle fields (set in the view) -->
     {{ form.driver }}
     {{ form.vehicle }}
+    
     <div class="row">
+        <!-- Main Form Column -->
         <div class="col-lg-8">
+            <!-- Settlement Details -->
             <div class="card mb-4">
                 <div class="card-header bg-primary text-white">
                     <i class="bi bi-info-circle"></i> Settlement Details
@@ -23,29 +43,58 @@
                         <div class="col-md-4">
                             <label class="form-label">Date <span class="text-danger">*</span></label>
                             {{ form.date }}
+                            {% if form.date.errors %}
+                                <div class="text-danger small">{{ form.date.errors }}</div>
+                            {% endif %}
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Period</label>
                             {{ form.settlement_period }}
+                            {% if form.settlement_period.errors %}
+                                <div class="text-danger small">{{ form.settlement_period.errors }}</div>
+                            {% endif %}
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Operating Model</label>
                             <input type="text" class="form-control" value="{{ driver.model_display }}" disabled>
                         </div>
                     </div>
-                    <div class="row mb-3">
+                    <div class="row mb-3" id="weeklyFields">
                         <div class="col-md-6">
                             <label class="form-label">Week Start</label>
                             {{ form.week_start }}
+                            {% if form.week_start.errors %}
+                                <div class="text-danger small">{{ form.week_start.errors }}</div>
+                            {% endif %}
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Week End</label>
                             {{ form.week_end }}
+                            {% if form.week_end.errors %}
+                                <div class="text-danger small">{{ form.week_end.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Driver info card (read-only) -->
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-between border-bottom py-1">
+                                <span class="text-muted">Vehicle:</span>
+                                <span class="fw-bold">{{ driver.vehicle.name|default:"Not assigned" }}</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-between border-bottom py-1">
+                                <span class="text-muted">Driver:</span>
+                                <span class="fw-bold">{{ driver.name }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
+            <!-- Income -->
             <div class="card mb-4">
                 <div class="card-header bg-success text-white">
                     <i class="bi bi-cash-coin"></i> Income
@@ -55,19 +104,29 @@
                         <div class="col-md-4">
                             <label class="form-label">Cash Collected (M)</label>
                             {{ form.cash_collected }}
+                            {% if form.cash_collected.errors %}
+                                <div class="text-danger small">{{ form.cash_collected.errors }}</div>
+                            {% endif %}
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Mobile Money (M)</label>
                             {{ form.mobile_collected }}
+                            {% if form.mobile_collected.errors %}
+                                <div class="text-danger small">{{ form.mobile_collected.errors }}</div>
+                            {% endif %}
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Card (M)</label>
                             {{ form.card_collected }}
+                            {% if form.card_collected.errors %}
+                                <div class="text-danger small">{{ form.card_collected.errors }}</div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
             </div>
 
+            <!-- Expenses -->
             <div class="card mb-4">
                 <div class="card-header bg-danger text-white">
                     <i class="bi bi-receipt"></i> Expenses
@@ -77,65 +136,174 @@
                         <div class="col-md-3">
                             <label class="form-label">Fuel (M)</label>
                             {{ form.fuel_expense }}
+                            {% if form.fuel_expense.errors %}
+                                <div class="text-danger small">{{ form.fuel_expense.errors }}</div>
+                            {% endif %}
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Maintenance (M)</label>
                             {{ form.maintenance_expense }}
+                            {% if form.maintenance_expense.errors %}
+                                <div class="text-danger small">{{ form.maintenance_expense.errors }}</div>
+                            {% endif %}
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Toll (M)</label>
                             {{ form.toll_expense }}
+                            {% if form.toll_expense.errors %}
+                                <div class="text-danger small">{{ form.toll_expense.errors }}</div>
+                            {% endif %}
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Other (M)</label>
                             {{ form.other_expense }}
+                            {% if form.other_expense.errors %}
+                                <div class="text-danger small">{{ form.other_expense.errors }}</div>
+                            {% endif %}
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Other Expense Description</label>
-                        {{ form.other_expense_desc }}
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Other Expense Description</label>
+                            {{ form.other_expense_desc }}
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Notes</label>
-                        {{ form.driver_notes }}
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Notes for Owner</label>
+                            {{ form.driver_notes }}
+                        </div>
                     </div>
                 </div>
             </div>
 
+            <!-- Submit Buttons -->
             <div class="d-flex justify-content-between">
-                <a href="{% url 'driver_settlements' %}" class="btn btn-secondary">Cancel</a>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> {% if edit_mode %}Resubmit{% else %}Submit{% endif %} Settlement</button>
+                <a href="{% url 'driver_settlements' %}" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </a>
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <i class="bi bi-save"></i> {% if edit_mode %}Resubmit{% else %}Submit{% endif %} Settlement
+                </button>
             </div>
         </div>
 
+        <!-- Live Calculations Sidebar -->
         <div class="col-lg-4">
-            <div class="card">
+            <div class="card sticky-top" style="top: 20px;">
                 <div class="card-header bg-info text-white">
                     <i class="bi bi-calculator"></i> Live Calculations
                 </div>
                 <div class="card-body">
-                    <p class="text-muted mb-2">Operating Model: <strong class="calc-operating-model">{{ driver.model_display|lower }}</strong></p>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small">Operating Model</span>
+                        <span class="badge bg-primary calc-model-badge">{{ driver.model_display }}</span>
+                    </div>
                     <hr>
-                    <div class="mb-2">
+                    
+                    <!-- Totals -->
+                    <div class="calculation-row mb-2">
                         <label class="text-muted small">Total Income</label>
-                        <h5 class="amount calc-total-income">M 0.00</h5>
+                        <h5 class="amount text-primary calc-total-income" id="calcTotalIncome">M 0.00</h5>
                     </div>
-                    <div class="mb-2">
+                    <div class="calculation-row mb-2">
                         <label class="text-muted small">Total Expenses</label>
-                        <h5 class="amount calc-total-expenses">M 0.00</h5>
+                        <h5 class="amount text-danger calc-total-expenses" id="calcTotalExpenses">M 0.00</h5>
                     </div>
-                    <div class="mb-2">
+                    <div class="calculation-row mb-3">
                         <label class="text-muted small">Gross Profit</label>
-                        <h5 class="amount calc-gross-profit">M 0.00</h5>
+                        <h5 class="amount calc-gross-profit" id="calcGrossProfit">M 0.00</h5>
                     </div>
                     <hr>
-                    <div class="mb-2">
-                        <label class="text-muted small">Driver Pay</label>
-                        <h5 class="amount text-success calc-driver-pay">M 0.00</h5>
+                    
+                    <!-- Quota-specific calculations -->
+                    <div id="quotaCalculations" style="display: none;">
+                        <div class="calculation-row mb-2">
+                            <label class="text-muted small">Daily Quota</label>
+                            <h5 class="amount text-secondary" id="calcDailyQuota">M 0.00</h5>
+                        </div>
+                        <div class="calculation-row mb-2">
+                            <label class="text-muted small">Surplus / Shortfall</label>
+                            <h5 class="amount" id="calcSurplusShortfall">M 0.00</h5>
+                        </div>
+                        <div class="calculation-row mb-2">
+                            <label class="text-muted small">Previous Debt</label>
+                            <h5 class="amount text-danger" id="calcPreviousDebt">M 0.00</h5>
+                        </div>
+                        <div class="calculation-row mb-2">
+                            <label class="text-muted small">Debt Repaid</label>
+                            <h5 class="amount text-success" id="calcDebtRepaid">M 0.00</h5>
+                        </div>
+                        <div class="calculation-row mb-2">
+                            <label class="text-muted small">New Debt</label>
+                            <h5 class="amount text-danger" id="calcNewDebt">M 0.00</h5>
+                        </div>
+                        <hr>
                     </div>
-                    <div class="mb-2">
+
+                    <!-- Salary-specific calculations -->
+                    <div id="salaryCalculations" style="display: none;">
+                        <div class="calculation-row mb-2">
+                            <label class="text-muted small">Daily Salary</label>
+                            <h5 class="amount text-success" id="calcDailySalary">M 0.00</h5>
+                        </div>
+                        <div class="calculation-row mb-2">
+                            <label class="text-muted small">Salary Accrued (MTD)</label>
+                            <h5 class="amount text-info" id="calcSalaryAccrued">M 0.00</h5>
+                        </div>
+                        <hr>
+                    </div>
+
+                    <!-- Percentage-specific calculations -->
+                    <div id="percentageCalculations" style="display: none;">
+                        <div class="calculation-row mb-2">
+                            <label class="text-muted small">Driver Percentage</label>
+                            <h5 class="amount text-success" id="calcDriverPercentage">0%</h5>
+                        </div>
+                        <div class="calculation-row mb-2">
+                            <label class="text-muted small">Driver Share</label>
+                            <h5 class="amount text-success" id="calcDriverShare">M 0.00</h5>
+                        </div>
+                        <hr>
+                    </div>
+
+                    <!-- Contract-specific calculations -->
+                    <div id="contractCalculations" style="display: none;">
+                        <div class="calculation-row mb-2">
+                            <label class="text-muted small">Target</label>
+                            <h5 class="amount text-secondary" id="calcContractTarget">M 0.00</h5>
+                        </div>
+                        <div class="calculation-row mb-2">
+                            <label class="text-muted small">Monthly Gross</label>
+                            <h5 class="amount text-primary" id="calcContractMonthlyGross">M 0.00</h5>
+                        </div>
+                        <div class="calculation-row mb-2">
+                            <label class="text-muted small">Remaining Target</label>
+                            <h5 class="amount text-danger" id="calcContractRemaining">M 0.00</h5>
+                        </div>
+                        <div class="calculation-row mb-2">
+                            <label class="text-muted small">Progress</label>
+                            <div class="progress" style="height: 10px;">
+                                <div class="progress-bar" id="contractProgressBar" style="width: 0%;"></div>
+                            </div>
+                            <small class="text-muted" id="contractProgressText">0%</small>
+                        </div>
+                        <hr>
+                    </div>
+
+                    <!-- Final Results -->
+                    <div class="calculation-row mb-2">
+                        <label class="text-muted small">Driver Pay</label>
+                        <h5 class="amount text-success calc-driver-pay" id="calcDriverPay">M 0.00</h5>
+                    </div>
+                    <div class="calculation-row mb-2">
                         <label class="text-muted small">Owner Collection</label>
-                        <h5 class="amount text-primary calc-owner-collection">M 0.00</h5>
+                        <h5 class="amount text-primary calc-owner-collection" id="calcOwnerCollection">M 0.00</h5>
+                    </div>
+                    
+                    <!-- Debt status (quota model) -->
+                    <div id="debtStatusDisplay" style="display: none;" class="mt-2">
+                        <span class="badge" id="calcDebtStatus">No Debt</span>
                     </div>
                 </div>
             </div>
@@ -145,5 +313,41 @@
 {% endblock %}
 
 {% block extra_js %}
+<script>
+    // Pass Django context variables to JavaScript
+    const settlementData = {
+        driverId: {{ driver.id|default:'null' }},
+        vehicleId: {{ driver.vehicle.id|default:'null' }},
+        operatingModel: "{{ driver.model_display|lower }}",
+        dailyQuota: {{ driver.effective_quota|default:'0' }},
+        dailySalary: {{ driver.effective_salary|default:'0' }},
+        driverPercentage: {{ driver.effective_percentage|default:'0' }},
+        contractTarget: {{ driver.effective_contract_target|default:'0' }},
+        failurePercentage: {{ driver.effective_contract_failure_percentage|default:'0' }},
+        previousDebt: {{ driver.debt_balance|default:'0' }},
+        editMode: {% if edit_mode %}true{% else %}false{% endif %},
+        settlementId: {% if settlement.id %}{{ settlement.id }}{% else %}null{% endif %},
+    };
+</script>
 <script src="{% static 'js/settlement.js' %}"></script>
+<script>
+    // Toggle weekly fields visibility
+    document.addEventListener('DOMContentLoaded', function() {
+        const periodSelect = document.getElementById('id_settlement_period');
+        const weeklyFields = document.getElementById('weeklyFields');
+        
+        function toggleWeeklyFields() {
+            if (periodSelect.value === 'weekly') {
+                weeklyFields.style.display = 'flex';
+            } else {
+                weeklyFields.style.display = 'none';
+            }
+        }
+        
+        if (periodSelect) {
+            periodSelect.addEventListener('change', toggleWeeklyFields);
+            toggleWeeklyFields(); // Initial state
+        }
+    });
+</script>
 {% endblock %}

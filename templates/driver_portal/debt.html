@@ -5,47 +5,106 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h3">Debt Ledger</h1>
+    <h1 class="h3"><i class="bi bi-credit-card"></i> Debt Ledger</h1>
+    <div>
+        <a href="{% url 'driver_dashboard' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </a>
+        <a href="{% url 'driver_settlements' %}" class="btn btn-outline-info btn-sm">
+            <i class="bi bi-list"></i> All Settlements
+        </a>
+    </div>
 </div>
+
+{% if driver.model_display != 'Quota System' %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i> 
+    Debt tracking is only available for drivers on the <strong>Quota System</strong>. 
+    Your current operating model is <strong>{{ driver.model_display }}</strong>.
+</div>
+{% else %}
 
 <!-- Current Debt Card -->
 <div class="row mb-4">
     <div class="col-md-6">
-        <div class="card stat-card">
-            <div class="stat-icon"><i class="bi bi-exclamation-triangle text-{% if current_debt > 0 %}danger{% else %}success{% endif %}"></i></div>
-            <div class="stat-value amount-{% if current_debt > 0 %}negative{% else %}positive{% endif %}">
-                M {{ current_debt|floatformat:2 }}
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <div class="display-6 mb-2">
+                    <i class="bi bi-exclamation-triangle 
+                        {% if current_debt > 0 %}text-danger{% else %}text-success{% endif %}">
+                    </i>
+                </div>
+                <div class="display-4 fw-bold 
+                    {% if current_debt > 0 %}text-danger{% else %}text-success{% endif %}">
+                    M {{ current_debt|floatformat:2 }}
+                </div>
+                <div class="text-muted">Current Debt Balance</div>
+                {% if current_debt > 0 %}
+                <div class="mt-2">
+                    <span class="badge bg-danger">Debt: {{ current_debt|floatformat:2 }}</span>
+                    <span class="badge bg-warning text-dark ms-1">Quota: M {{ driver.effective_quota|floatformat:2 }}</span>
+                </div>
+                {% else %}
+                <div class="mt-2">
+                    <span class="badge bg-success">No Debt</span>
+                    <span class="badge bg-warning text-dark ms-1">Quota: M {{ driver.effective_quota|floatformat:2 }}</span>
+                </div>
+                {% endif %}
             </div>
-            <div class="stat-label">Current Debt Balance</div>
         </div>
     </div>
     <div class="col-md-6">
-        <div class="card bg-light">
+        <div class="card border-0 shadow-sm h-100 bg-light">
             <div class="card-body">
-                <h6 class="card-title">Understanding Your Debt</h6>
-                <p class="card-text small text-muted mb-1">
-                    <i class="bi bi-info-circle"></i> 
-                    When your daily gross profit is less than your quota, the shortfall 
-                    becomes debt. When you have a surplus, it's used to repay any outstanding debt first.
-                </p>
-                <p class="card-text small text-muted mb-0">
-                    <i class="bi bi-currency-exchange"></i> 
-                    <strong>Quota:</strong> M {{ driver.effective_quota|floatformat:2 }} / day
-                </p>
+                <h6 class="card-title text-muted mb-2">
+                    <i class="bi bi-info-circle"></i> Understanding Your Debt
+                </h6>
+                <ul class="list-unstyled small mb-0">
+                    <li class="mb-2">
+                        <i class="bi bi-arrow-down-circle text-danger"></i> 
+                        <strong>Debt accumulates</strong> when your daily gross profit is less than your quota
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-arrow-up-circle text-success"></i> 
+                        <strong>Debt is repaid</strong> automatically when you have surplus earnings
+                    </li>
+                    <li class="mb-0">
+                        <i class="bi bi-check-circle text-info"></i> 
+                        <strong>No debt?</strong> You keep all surplus above your quota
+                    </li>
+                </ul>
+                <hr>
+                <div class="small text-muted">
+                    <i class="bi bi-calculator"></i> 
+                    Your daily quota: <strong>M {{ driver.effective_quota|floatformat:2 }}</strong>
+                </div>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Debt Trend Chart -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-graph-up"></i> Debt Trend
+    </div>
+    <div class="card-body">
+        <canvas id="debtChart" height="100"></canvas>
     </div>
 </div>
 
 <!-- Debt History -->
 <div class="card">
-    <div class="card-header">
-        <i class="bi bi-journal-text"></i> Settlement History
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+            <i class="bi bi-journal-text"></i> Settlement History
+        </div>
+        <span class="badge bg-secondary">{{ settlements|length }} records</span>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover mb-0">
-                <thead>
+                <thead class="table-light">
                     <tr>
                         <th>Date</th>
                         <th class="text-end">Gross Profit</th>
@@ -59,18 +118,22 @@
                 <tbody>
                     {% for s in settlements %}
                     <tr>
-                        <td>{{ s.date }}</td>
-                        <td class="text-end amount">M {{ s.gross_profit|floatformat:2 }}</td>
-                        <td class="text-end amount">M {{ s.daily_quota|floatformat:2 }}</td>
-                        <td class="text-end amount amount-{% if s.surplus_shortfall >= 0 %}positive{% else %}negative{% endif %}">
-                            M {{ s.surplus_shortfall|floatformat:2 }}
+                        <td>
+                            <a href="{% url 'driver_settlement_detail' s.id %}" class="text-decoration-none">
+                                {{ s.date|date:"d M Y" }}
+                            </a>
                         </td>
-                        <td class="text-end amount amount-positive">M {{ s.debt_repaid|floatformat:2 }}</td>
-                        <td class="text-end amount amount-{% if s.new_debt > 0 %}negative{% else %}positive{% endif %}">
+                        <td class="text-end">M {{ s.gross_profit|floatformat:2 }}</td>
+                        <td class="text-end">M {{ s.daily_quota|floatformat:2 }}</td>
+                        <td class="text-end {% if s.surplus_shortfall >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if s.surplus_shortfall >= 0 %}+{% endif %}M {{ s.surplus_shortfall|floatformat:2 }}
+                        </td>
+                        <td class="text-end text-success">M {{ s.debt_repaid|floatformat:2 }}</td>
+                        <td class="text-end {% if s.new_debt > 0 %}text-danger{% else %}text-success{% endif %}">
                             M {{ s.new_debt|floatformat:2 }}
                         </td>
                         <td>
-                            <span class="badge bg-{% if s.debt_status == 'none' %}success{% elif s.debt_status == 'repaid' %}info{% elif s.debt_status == 'accumulated' %}danger{% else %}warning{% endif %}">
+                            <span class="badge {% if s.debt_status == 'none' %}bg-success{% elif s.debt_status == 'repaid' %}bg-info{% elif s.debt_status == 'accumulated' %}bg-danger{% elif s.debt_status == 'partial' %}bg-warning text-dark{% elif s.debt_status == 'overdue' %}bg-danger{% else %}bg-secondary{% endif %}">
                                 {{ s.get_debt_status_display }}
                             </span>
                         </td>
@@ -78,6 +141,7 @@
                     {% empty %}
                     <tr>
                         <td colspan="7" class="text-center py-4 text-muted">
+                            <i class="bi bi-inbox fs-3 d-block"></i>
                             No settlements found.
                         </td>
                     </tr>
@@ -86,5 +150,147 @@
             </table>
         </div>
     </div>
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <div class="card-footer">
+        <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center mb-0">
+                {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page=1">&laquo; First</a></li>
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
+                {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last &raquo;</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
 </div>
+
+<!-- Debt Summary Stats -->
+<div class="row mt-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="text-muted small">Total Debt Incurred</div>
+                <div class="h5 text-danger">M {{ total_debt_incurred|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="text-muted small">Total Debt Repaid</div>
+                <div class="h5 text-success">M {{ total_debt_repaid|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="text-muted small">Debt Repayment Rate</div>
+                <div class="h5 text-info">{{ repayment_rate|floatformat:1 }}%</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="text-muted small">Days Since First Debt</div>
+                <div class="h5">{{ days_since_first_debt }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    {% if settlements and driver.model_display == 'Quota System' %}
+    // Prepare data for chart
+    const labels = [
+        {% for s in settlements %}
+            '{{ s.date|date:"d M" }}',
+        {% endfor %}
+    ];
+    const debtData = [
+        {% for s in settlements %}
+            {{ s.new_debt|floatformat:2 }},
+        {% endfor %}
+    ];
+    const surplusData = [
+        {% for s in settlements %}
+            {{ s.surplus_shortfall|floatformat:2 }},
+        {% endfor %}
+    ];
+
+    const ctx = document.getElementById('debtChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Debt Balance',
+                    data: debtData,
+                    borderColor: '#e74c3c',
+                    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 3,
+                },
+                {
+                    label: 'Surplus/Shortfall',
+                    data: surplusData,
+                    borderColor: '#2c7be5',
+                    backgroundColor: 'rgba(44, 123, 229, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 3,
+                    borderDash: [5, 5],
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        boxWidth: 12,
+                        padding: 10,
+                        font: { size: 11 }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': M ' + context.parsed.y.toFixed(2);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'M ' + value.toFixed(2);
+                        }
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+});
+</script>
+{% endblock %}
 {% endblock %}

@@ -6,20 +6,13 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-
-from dotenv import load_dotenv
 import dj_database_url
 
-
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load environment variables from .env file
+# Load environment variables from .env file (if present)
 load_dotenv()
-
-# Security
-SECRET_KEY = os.environ.get('SECRET_KEY')
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') + ['localhost', '127.0.0.1']
 
 # ------------------------------------------------------------------
 # Core settings – read from environment with safe defaults
@@ -38,9 +31,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
     # Third-party
     'rest_framework',
     'corsheaders',
+    'django_extensions',   # optional, uncomment if you use it
+
     # Local apps
     'accounts',
     'vehicles',
@@ -56,7 +52,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',   # must be high up
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -78,8 +74,9 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'accounts.context_processors.pending_approvals',
-                'accounts.context_processors.system_settings',
+                # Uncomment these only if you have them defined in 'accounts'
+                # 'accounts.context_processors.pending_approvals',
+                # 'accounts.context_processors.system_settings',
             ],
         },
     },
@@ -90,10 +87,11 @@ WSGI_APPLICATION = 'taxiaccounting.wsgi.application'
 # ------------------------------------------------------------------
 # Database – PostgreSQL in production, SQLite in dev
 # ------------------------------------------------------------------
-DATABASE_URL = os.environ.get('DATABASE_URL', '')
+DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:
-    import dj_database_url
-    DATABASES = {'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)}
+    DATABASES = {
+        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
+    }
 else:
     DATABASES = {
         'default': {
@@ -132,9 +130,9 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Cloudinary for media (optional – falls back to local storage)
-CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME', '')
-CLOUDINARY_API_KEY = os.environ.get('CLOUDINARY_API_KEY', '')
-CLOUDINARY_API_SECRET = os.environ.get('CLOUDINARY_API_SECRET', '')
+CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME')
+CLOUDINARY_API_KEY = os.environ.get('CLOUDINARY_API_KEY')
+CLOUDINARY_API_SECRET = os.environ.get('CLOUDINARY_API_SECRET')
 
 if CLOUDINARY_CLOUD_NAME:
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
@@ -154,18 +152,22 @@ LOGOUT_REDIRECT_URL = '/accounts/login/'
 # ------------------------------------------------------------------
 # Session expiration – 5 minutes of inactivity
 # ------------------------------------------------------------------
-# SESSION_COOKIE_AGE: how long (in seconds) the session cookie lasts.
-# SESSION_SAVE_EVERY_REQUEST: refreshes the cookie on every request so
-#   the expiry is measured from the *last* activity (inactivity-based).
-# SESSION_EXPIRE_AT_BROWSER_CLOSE: session ends when the browser closes.
-SESSION_COOKIE_AGE = 300          # 5 minutes
+SESSION_COOKIE_AGE = 300          # 5 seconds? No, 300 seconds = 5 minutes
 SESSION_SAVE_EVERY_REQUEST = True
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 # ------------------------------------------------------------------
-# CORS
+# CORS – restrict to allowed hosts in production
 # ------------------------------------------------------------------
-CORS_ALLOW_ALL_ORIGINS = True
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOWED_ORIGINS = [
+        f'http://{host}' for host in ALLOWED_HOSTS if host not in ['localhost', '127.0.0.1']
+    ] + [
+        f'https://{host}' for host in ALLOWED_HOSTS if host not in ['localhost', '127.0.0.1']
+    ]
+    # Add specific frontend domains if needed
 
 # ------------------------------------------------------------------
 # REST Framework

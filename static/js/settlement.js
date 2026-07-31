@@ -1,192 +1,210 @@
 /**
- * settlement.js – Real-time settlement calculation for the Taxi Accounting System
- * 
- * Calculates totals, gross profit, driver pay, and owner collection
- * based on the selected vehicle/driver operating model.
+ * settlement.js – Real-time settlement calculation
+ * Uses business rules from the Django models.
  */
 
 (function () {
     'use strict';
 
     const AMOUNT_CLASS = 'amount-input';
-    const TOTALS_CLASS = 'auto-calc';
 
     function initSettlementCalculator() {
         const form = document.querySelector('.settlement-form');
         if (!form) return;
 
+        // All input fields that affect calculations
         const inputs = form.querySelectorAll('.' + AMOUNT_CLASS);
         inputs.forEach(input => {
-            input.addEventListener('input', recalculateTotals);
-            input.addEventListener('change', recalculateTotals);
+            input.addEventListener('input', recalculate);
+            input.addEventListener('change', recalculate);
         });
 
-        // Watch for vehicle/driver changes
+        // Vehicle/driver changes
         const vehicleSelect = form.querySelector('#id_vehicle');
         const driverSelect = form.querySelector('#id_driver');
-        if (vehicleSelect) {
-            vehicleSelect.addEventListener('change', function () {
-                loadVehicleDetails(this.value);
-                recalculateTotals();
-            });
-        }
-        if (driverSelect) {
-            driverSelect.addEventListener('change', function () {
-                loadDriverDetails(this.value);
-                recalculateTotals();
-            });
-        }
+        if (vehicleSelect) vehicleSelect.addEventListener('change', function () {
+            loadVehicleDetails(this.value);
+            recalculate();
+        });
+        if (driverSelect) driverSelect.addEventListener('change', function () {
+            loadDriverDetails(this.value);
+            recalculate();
+        });
 
         // Initial calculation
-        recalculateTotals();
+        recalculate();
     }
 
-    function getValue(selector) {
+    function getVal(selector) {
         const el = document.querySelector(selector);
         return el ? parseFloat(el.value) || 0 : 0;
     }
 
-    function setValue(selector, value) {
+    function setText(selector, value, prefix = 'M ') {
         const el = document.querySelector(selector);
-        if (el) {
-            el.textContent = 'M ' + (value || 0).toFixed(2);
-        }
+        if (el) el.textContent = prefix + value.toFixed(2);
     }
 
-    function recalculateTotals() {
-        const cash = getValue('#id_cash_collected');
-        const mobile = getValue('#id_mobile_collected');
-        const card = getValue('#id_card_collected');
-        const fuel = getValue('#id_fuel_expense');
-        const maintenance = getValue('#id_maintenance_expense');
-        const toll = getValue('#id_toll_expense');
-        const other = getValue('#id_other_expense');
-
+    function recalculate() {
+        // 1. Income & expenses
+        const cash = getVal('#id_cash_collected');
+        const mobile = getVal('#id_mobile_collected');
+        const card = getVal('#id_card_collected');
         const totalIncome = cash + mobile + card;
+
+        const fuel = getVal('#id_fuel_expense');
+        const maintenance = getVal('#id_maintenance_expense');
+        const toll = getVal('#id_toll_expense');
+        const other = getVal('#id_other_expense');
         const totalExpenses = fuel + maintenance + toll + other;
+
         const grossProfit = totalIncome - totalExpenses;
 
-        setValue('.calc-total-income', totalIncome);
-        setValue('.calc-total-expenses', totalExpenses);
-        setValue('.calc-gross-profit', grossProfit);
+        // 2. Update common fields
+        setText('.calc-total-income', totalIncome);
+        setText('.calc-total-expenses', totalExpenses);
+        setText('.calc-gross-profit', grossProfit);
 
-        // Update hidden fields if they exist
-        const hiddenIncome = document.querySelector('#id_total_income');
-        const hiddenExpenses = document.querySelector('#id_total_expenses');
-        const hiddenGross = document.querySelector('#id_gross_profit');
-        if (hiddenIncome) hiddenIncome.value = totalIncome.toFixed(2);
-        if (hiddenExpenses) hiddenExpenses.value = totalExpenses.toFixed(2);
-        if (hiddenGross) hiddenGross.value = grossProfit.toFixed(2);
-
-        // Trigger model-specific calculation
+        // 3. Determine operating model
         const modelEl = document.querySelector('.calc-operating-model');
         const model = modelEl ? modelEl.textContent.trim().toLowerCase() : 'quota';
 
-        switch (model) {
-            case 'quota':
-                calcQuota(grossProfit);
-                break;
-            case 'salary':
-                calcSalary(grossProfit);
-                break;
-            case 'percentage':
-                calcPercentage(grossProfit);
-                break;
-            case 'contract':
-                calcContract(grossProfit);
-                break;
-        }
-    }
-
-    function calcQuota(grossProfit) {
-        const dailyQuota = parseFloat(document.querySelector('.calc-daily-quota')?.textContent) || 250;
-        const previousDebt = parseFloat(document.querySelector('.calc-previous-debt')?.textContent) || 0;
-
+        // 4. Model-specific calculations
         let driverPay = 0;
         let ownerCollection = 0;
-        let debtRepaid = 0;
-        let newDebt = previousDebt;
-        let surplusShortfall = 0;
 
-        // If the driver has previous debt, repayment applies
-        if (grossProfit >= dailyQuota) {
-            const surplus = grossProfit - dailyQuota;
-            surplusShortfall = surplus;
-            if (previousDebt > 0) {
-                debtRepaid = Math.min(surplus, previousDebt);
-                newDebt = Math.max(0, previousDebt - debtRepaid);
-                driverPay = debtRepaid + (surplus - debtRepaid);
+        // Show/hide model sections
+        document.querySelectorAll('.model-specific').forEach(el => el.style.display = 'none');
+        const sectionId = model + 'Calculations';
+        const section = document.getElementById(sectionId);
+        if (section) section.style.display = 'block';
+
+        if (model === 'quota') {
+            // Read quota and previous debt from data attributes or hidden fields
+            const quota = parseFloat(document.querySelector('.calc-daily-quota')?.dataset.value) || 250;
+            const previousDebt = parseFloat(document.querySelector('.calc-previous-debt')?.dataset.value) || 0;
+
+            let surplus = grossProfit - quota;
+            let debtRepaid = 0;
+            let newDebt = previousDebt;
+
+            if (grossProfit >= quota) {
+                // Surplus case
+                if (previousDebt > 0) {
+                    debtRepaid = Math.min(surplus, previousDebt);
+                    newDebt = previousDebt - debtRepaid;
+                    driverPay = surplus - debtRepaid;
+                } else {
+                    driverPay = surplus;
+                    newDebt = 0;
+                }
+                ownerCollection = quota; // owner gets quota
             } else {
-                driverPay = surplus;
-                newDebt = 0;
+                // Shortfall case
+                const shortfall = quota - grossProfit;
+                newDebt = previousDebt + shortfall;
+                driverPay = 0;
+                ownerCollection = Math.max(0, grossProfit); // owner gets all, but not negative
             }
-            ownerCollection = dailyQuota;
-        } else {
-            surplusShortfall = grossProfit - dailyQuota;
-            const shortfall = dailyQuota - grossProfit;
-            newDebt = previousDebt + shortfall;
-            ownerCollection = grossProfit;
-            driverPay = 0;
+
+            setText('.calc-surplus-shortfall', surplus);
+            setText('.calc-debt-repaid', debtRepaid);
+            setText('.calc-new-debt', newDebt);
+            // Debt status badge update
+            const debtStatusEl = document.querySelector('.calc-debt-status');
+            if (debtStatusEl) {
+                let text, cls;
+                if (newDebt === 0) { text = 'No Debt'; cls = 'bg-success'; }
+                else if (debtRepaid > 0 && newDebt > 0) { text = 'Partial'; cls = 'bg-warning'; }
+                else if (newDebt > 0) { text = 'Debt: M ' + newDebt.toFixed(2); cls = 'bg-danger'; }
+                debtStatusEl.textContent = text;
+                debtStatusEl.className = 'badge ' + cls;
+            }
+
+        } else if (model === 'salary') {
+            const monthlySalary = parseFloat(document.querySelector('.calc-daily-rate')?.dataset.value) || 3000;
+            const days = 30; // can be read from settings
+            const dailyRate = monthlySalary / days;
+            setText('.calc-daily-salary', dailyRate);
+            // Salary accrued – simplified, we don't have month-to-date here
+            setText('.calc-salary-accrued', dailyRate); // placeholder
+
+            driverPay = dailyRate;
+            ownerCollection = grossProfit - dailyRate;
+            if (ownerCollection < 0) ownerCollection = 0; // owner can't lose money in UI? But accounting allows negative.
+
+        } else if (model === 'percentage') {
+            const percentage = parseFloat(document.querySelector('.calc-driver-percentage')?.dataset.value) || 30;
+            const driverAmount = (percentage / 100) * totalIncome; // based on total income, not gross
+            const ownerAmount = totalIncome - driverAmount;
+
+            setText('.calc-driver-share', driverAmount);
+            setText('.calc-owner-share', ownerAmount);
+
+            driverPay = driverAmount;
+            ownerCollection = ownerAmount;
+
+        } else if (model === 'contract') {
+            // For live preview: we show a simple estimate based on failure percentage
+            const target = parseFloat(document.querySelector('.calc-contract-target')?.dataset.value) || 15000;
+            const failurePct = parseFloat(document.querySelector('.calc-failure-percentage')?.dataset.value) || 20;
+            // Assume we don't know month-to-date gross, so we use current totalIncome as daily income
+            const dailyIncome = totalIncome;
+            // If we had month-to-date, we could compute progress, but for now show placeholder
+            setText('.calc-contract-remaining', target - dailyIncome);
+            // Driver pay = failure percentage of daily income (assuming not reached target)
+            const failureAmount = (failurePct / 100) * dailyIncome;
+            driverPay = failureAmount;
+            ownerCollection = dailyIncome - driverPay;
+            // Progress bar – we can't compute without month-to-date, so we set to 0
+            const progressBar = document.getElementById('contractProgressBar');
+            if (progressBar) {
+                const progress = Math.min(100, (dailyIncome / target) * 100);
+                progressBar.style.width = progress + '%';
+                progressBar.textContent = progress.toFixed(0) + '%';
+            }
         }
 
-        setValue('.calc-surplus-shortfall', surplusShortfall);
-        setValue('.calc-debt-repaid', debtRepaid);
-        setValue('.calc-new-debt', newDebt);
-        setValue('.calc-driver-pay', driverPay);
-        setValue('.calc-owner-collection', ownerCollection + totalExpenses());
+        // 5. Update final payouts
+        setText('.calc-driver-pay', driverPay);
+        setText('.calc-owner-collection', ownerCollection);
+
+        // Optionally update hidden fields if they exist
+        const hiddenIncome = document.querySelector('#id_total_income');
+        const hiddenExpenses = document.querySelector('#id_total_expenses');
+        const hiddenGross = document.querySelector('#id_gross_profit');
+        const hiddenDriverPay = document.querySelector('#id_driver_pay');
+        const hiddenOwnerCol = document.querySelector('#id_total_owner_collected');
+        if (hiddenIncome) hiddenIncome.value = totalIncome.toFixed(2);
+        if (hiddenExpenses) hiddenExpenses.value = totalExpenses.toFixed(2);
+        if (hiddenGross) hiddenGross.value = grossProfit.toFixed(2);
+        if (hiddenDriverPay) hiddenDriverPay.value = driverPay.toFixed(2);
+        if (hiddenOwnerCol) hiddenOwnerCol.value = ownerCollection.toFixed(2);
     }
 
-    function calcSalary(grossProfit) {
-        const dailyRate = parseFloat(document.querySelector('.calc-daily-rate')?.textContent) || 100;
-        const driverPay = dailyRate;
-        const ownerCollection = grossProfit - dailyRate + totalExpenses();
-        setValue('.calc-driver-pay', driverPay);
-        setValue('.calc-owner-collection', Math.max(0, ownerCollection));
-    }
-
-    function calcPercentage(grossProfit) {
-        const percentage = parseFloat(document.querySelector('.calc-driver-percentage')?.textContent) || 30;
-        const driverAmount = (percentage / 100) * grossProfit;
-        const ownerAmount = grossProfit - driverAmount;
-        setValue('.calc-driver-percentage-amount', driverAmount);
-        setValue('.calc-owner-percentage-amount', ownerAmount);
-        setValue('.calc-driver-pay', driverAmount);
-        setValue('.calc-owner-collection', ownerAmount + totalExpenses());
-    }
-
-    function calcContract(grossProfit) {
-        const target = parseFloat(document.querySelector('.calc-contract-target')?.textContent) || 15000;
-        const monthlyGross = parseFloat(document.querySelector('.calc-monthly-gross')?.textContent) || 0;
-        const remaining = Math.max(0, target - monthlyGross);
-        setValue('.calc-remaining-target', remaining);
-    }
-
-    function totalExpenses() {
-        return getValue('#id_fuel_expense') + getValue('#id_maintenance_expense') +
-            getValue('#id_toll_expense') + getValue('#id_other_expense');
-    }
-
+    // Load vehicle details from API and update data attributes
     function loadVehicleDetails(vehicleId) {
         if (!vehicleId) return;
         fetch('/api/vehicle/' + vehicleId + '/details/')
             .then(r => r.json())
             .then(data => {
-                const el = document.querySelector('.calc-operating-model');
-                if (el) el.textContent = data.operating_model_display;
+                const modelEl = document.querySelector('.calc-operating-model');
+                if (modelEl) modelEl.textContent = data.operating_model_display;
 
                 const qEl = document.querySelector('.calc-daily-quota');
-                if (qEl) qEl.textContent = data.daily_quota;
+                if (qEl) qEl.dataset.value = data.daily_quota;
 
                 const sEl = document.querySelector('.calc-daily-rate');
-                if (sEl && data.operating_model === 'salary') {
-                    sEl.textContent = (parseFloat(data.monthly_salary) / 30).toFixed(2);
-                }
+                if (sEl) sEl.dataset.value = data.monthly_salary;
 
                 const pEl = document.querySelector('.calc-driver-percentage');
-                if (pEl) pEl.textContent = data.driver_percentage;
+                if (pEl) pEl.dataset.value = data.driver_percentage;
 
                 const tEl = document.querySelector('.calc-contract-target');
-                if (tEl) tEl.textContent = data.contract_target;
+                if (tEl) tEl.dataset.value = data.contract_target;
+
+                const fEl = document.querySelector('.calc-failure-percentage');
+                if (fEl) fEl.dataset.value = data.contract_failure_percentage;
             })
             .catch(console.error);
     }
@@ -196,13 +214,13 @@
         fetch('/api/driver/' + driverId + '/details/')
             .then(r => r.json())
             .then(data => {
-                const el = document.querySelector('.calc-previous-debt');
-                if (el) el.textContent = data.debt_balance;
+                const debtEl = document.querySelector('.calc-previous-debt');
+                if (debtEl) debtEl.dataset.value = data.debt_balance;
             })
             .catch(console.error);
     }
 
-    // Initialize on DOM ready
+    // Initialize
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initSettlementCalculator);
     } else {

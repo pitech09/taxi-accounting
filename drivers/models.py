@@ -3,6 +3,7 @@ Driver model for the Taxi Accounting System.
 Represents a taxi driver who may operate under any of the four operating models.
 """
 from django.db import models
+from django.urls import reverse
 from django.contrib.auth.hashers import check_password, make_password
 from vehicles.models import Vehicle
 
@@ -16,7 +17,7 @@ class Driver(models.Model):
     address = models.TextField(blank=True)
     id_number = models.CharField(max_length=50, blank=True)
 
-    license_type = models.CharField(max_length=10, blank=True)
+    license_type = models.CharField(max_length=50, blank=True)
     license_number = models.CharField(max_length=50, blank=True)
     license_expiry = models.DateField(null=True, blank=True)
 
@@ -50,17 +51,29 @@ class Driver(models.Model):
     contract_failure_percentage_override = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
 
     # Portal access
-    driver_code = models.CharField(max_length=4, unique=True, blank=True, null=True,
-                                   help_text='4-digit code for driver portal login')
+    driver_code = models.CharField(
+        max_length=4,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text='4-digit code for driver portal login'
+    )
     portal_password = models.CharField(max_length=128, blank=True, null=True)
     is_portal_enabled = models.BooleanField(default=False)
     last_login = models.DateTimeField(null=True, blank=True)
+
+    # Notes for owner/admin
+    notes = models.TextField(blank=True, help_text='Internal notes about this driver')
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.driver_code or 'no code'})"
+
+    def get_absolute_url(self):
+        """Link to driver detail in owner portal."""
+        return reverse('owner_driver_detail', kwargs={'driver_id': self.id})
 
     # ------------------------------------------------------------------
     # Effective parameter helpers – fall back to vehicle defaults
@@ -92,19 +105,22 @@ class Driver(models.Model):
     @property
     def effective_contract_success_bonus_fixed(self):
         if self.vehicle and self.vehicle.operating_model == 'contract':
-            return self.contract_success_bonus_fixed_override or self.vehicle.contract_success_bonus_fixed
+            return (self.contract_success_bonus_fixed_override or
+                    self.vehicle.contract_success_bonus_fixed)
         return 0
 
     @property
     def effective_contract_success_bonus_percentage(self):
         if self.vehicle and self.vehicle.operating_model == 'contract':
-            return self.contract_success_bonus_percentage_override or self.vehicle.contract_success_bonus_percentage
+            return (self.contract_success_bonus_percentage_override or
+                    self.vehicle.contract_success_bonus_percentage)
         return 0
 
     @property
     def effective_contract_failure_percentage(self):
         if self.vehicle and self.vehicle.operating_model == 'contract':
-            return self.contract_failure_percentage_override or self.vehicle.contract_failure_percentage
+            return (self.contract_failure_percentage_override or
+                    self.vehicle.contract_failure_percentage)
         return 0
 
     @property
@@ -142,16 +158,26 @@ class Driver(models.Model):
 
     def set_portal_password(self, raw_password):
         """Set the portal password using Django's password hasher."""
-        self.portal_password = make_password(raw_password)
+        if raw_password:
+            self.portal_password = make_password(raw_password)
+        else:
+            self.portal_password = None
 
     def save(self, *args, **kwargs):
         """Auto-generate a 4-digit driver code if not provided."""
         if not self.driver_code:
             import random
-            from django.db import IntegrityError
             for _ in range(10):
                 code = f"{random.randint(1000, 9999)}"
                 if not Driver.objects.filter(driver_code=code).exists():
                     self.driver_code = code
                     break
         super().save(*args, **kwargs)
+
+    class Meta:
+        ordering = ['name']
+        indexes = [
+            models.Index(fields=['phone']),
+            models.Index(fields=['vehicle', 'is_active']),
+            models.Index(fields=['driver_code']),
+        ]

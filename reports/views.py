@@ -2,7 +2,7 @@
 Report views for the Taxi Accounting System.
 All views require staff authentication.
 """
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.db.models import Sum, Q
 from django.http import HttpResponse
@@ -33,14 +33,33 @@ def _owner_required(view_func):
 
 
 def _get_date_range(request):
-    """Extract start/end dates from GET params, defaulting to current month."""
+    """
+    Extract start/end dates from GET params, defaulting to current month.
+    Returns (start_date, end_date) as date objects.
+    """
     today = date.today()
-    start_date = request.GET.get('start_date') or today.replace(day=1)
-    end_date = request.GET.get('end_date') or today
-    if isinstance(start_date, str):
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-    if isinstance(end_date, str):
-        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+    start_str = request.GET.get('start_date')
+    end_str = request.GET.get('end_date')
+
+    if start_str:
+        try:
+            start_date = datetime.strptime(start_str, '%Y-%m-%d').date()
+        except ValueError:
+            start_date = today.replace(day=1)
+    else:
+        start_date = today.replace(day=1)
+
+    if end_str:
+        try:
+            end_date = datetime.strptime(end_str, '%Y-%m-%d').date()
+        except ValueError:
+            end_date = today
+    else:
+        end_date = today
+
+    if start_date > end_date:
+        start_date, end_date = end_date, start_date
+
     return start_date, end_date
 
 
@@ -58,9 +77,14 @@ def report_index(request):
 @_owner_required
 def daily_fleet_summary(request):
     """Daily fleet summary report."""
-    target_date = request.GET.get('date') or date.today()
-    if isinstance(target_date, str):
-        target_date = datetime.strptime(target_date, '%Y-%m-%d').date()
+    target_date = request.GET.get('date')
+    if target_date:
+        try:
+            target_date = datetime.strptime(target_date, '%Y-%m-%d').date()
+        except ValueError:
+            target_date = date.today()
+    else:
+        target_date = date.today()
 
     settlements = DailySettlement.objects.filter(
         date=target_date, status='approved'
@@ -143,7 +167,7 @@ def monthly_pnl(request):
 # ------------------------------------------------------------------
 @_owner_required
 def cashbook_report(request):
-    """Cash book ledger report."""
+    """Cash book ledger report with current cash balance."""
     start_date, end_date = _get_date_range(request)
 
     transactions = CashTransaction.objects.filter(
@@ -153,11 +177,15 @@ def cashbook_report(request):
     additions = transactions.filter(
         transaction_type__in=['addition', 'transfer_from_bank', 'settlement_collection']
     ).aggregate(total=Sum('amount'))['total'] or 0
+
     withdrawals = transactions.filter(
         transaction_type__in=['withdrawal', 'transfer_to_bank', 'expense_cash',
                               'petty_cash', 'salary_payment', 'commission_payment',
                               'bonus_payment', 'loan_repayment']
     ).aggregate(total=Sum('amount'))['total'] or 0
+
+    net = additions - withdrawals
+    cash_balance = CashInHand.get_balance()
 
     context = {
         'start_date': start_date,
@@ -165,11 +193,12 @@ def cashbook_report(request):
         'transactions': transactions,
         'additions': additions,
         'withdrawals': withdrawals,
-        'net': additions - withdrawals,
-        'cash_balance': CashInHand.get_balance(),
+        'net': net,
+        'cash_balance': cash_balance,          # ← THIS WAS MISSING
+        'opening_balance': cash_balance - net,
+        'transaction_count': transactions.count(),
     }
     return render(request, 'reports/cashbook.html', context)
-
 
 @_owner_required
 def cashbook_report_csv(request):
@@ -211,7 +240,7 @@ def bank_reconciliation(request):
     }
 
     if bank_id:
-        bank = get_object_or_404_bank(bank_id)
+        bank = get_object_or_404(BankAccount, id=bank_id)
         transactions = CashTransaction.objects.filter(
             bank_account=bank, date__gte=start_date, date__lte=end_date
         ).order_by('date', 'created_at')
@@ -228,11 +257,6 @@ def bank_reconciliation(request):
         })
 
     return render(request, 'reports/bank_reconciliation.html', context)
-
-
-def get_object_or_404_bank(bank_id):
-    from django.shortcuts import get_object_or_404
-    return get_object_or_404(BankAccount, id=bank_id)
 
 
 # ------------------------------------------------------------------
@@ -259,18 +283,28 @@ def expense_report(request):
         total=Sum('amount')
     ).order_by('-total')
 
+    category_field = CashTransaction._meta.get_field('category')
+    category_choices = dict(category_field.choices)
+
+    by_category_with_labels = []
+    for item in by_category:
+        by_category_with_labels.append({
+            'category': item['category'],
+            'display': category_choices.get(item['category'], item['category']),
+            'total': item['total'],
+        })
+
     total = expenses.aggregate(total=Sum('amount'))['total'] or 0
 
     context = {
         'start_date': start_date,
         'end_date': end_date,
         'expenses': expenses,
-        'by_category': by_category,
+        'by_category': by_category_with_labels,
         'total': total,
+        'category_choices': category_field.choices,  # tuple of (code, label)
     }
     return render(request, 'reports/expenses.html', context)
-
-
 # ------------------------------------------------------------------
 # Cash flow statement
 # ------------------------------------------------------------------
@@ -293,14 +327,26 @@ def cash_flow_report(request):
                               'bonus_payment', 'loan_repayment']
     ).aggregate(total=Sum('amount'))['total'] or 0
 
+    # Opening balance: cash balance before start date
+    opening_transactions = CashTransaction.objects.filter(date__lt=start_date)
+    opening_in = opening_transactions.filter(
+        transaction_type__in=['addition', 'transfer_from_bank', 'settlement_collection']
+    ).aggregate(total=Sum('amount'))['total'] or 0
+    opening_out = opening_transactions.filter(
+        transaction_type__in=['withdrawal', 'transfer_to_bank', 'expense_cash',
+                              'petty_cash', 'salary_payment', 'commission_payment',
+                              'bonus_payment', 'loan_repayment']
+    ).aggregate(total=Sum('amount'))['total'] or 0
+    opening_balance = opening_in - opening_out
+
     context = {
         'start_date': start_date,
         'end_date': end_date,
         'cash_in': cash_in,
         'cash_out': cash_out,
         'net_flow': cash_in - cash_out,
-        'opening_balance': CashInHand.get_balance() - (cash_in - cash_out),
-        'closing_balance': CashInHand.get_balance(),
+        'opening_balance': opening_balance,
+        'closing_balance': opening_balance + cash_in - cash_out,
     }
     return render(request, 'reports/cash_flow.html', context)
 
@@ -332,7 +378,13 @@ def contract_progress(request):
         monthly_gross = settlements.aggregate(total=Sum('total_income'))['total'] or 0
         target = driver.effective_contract_target
         progress = (monthly_gross / target * 100) if target > 0 else 0
-        days_remaining = max(0, days_in_month - today.day) if month == today.month and year == today.year else days_in_month
+
+        # Days remaining in the month
+        if year == today.year and month == today.month:
+            days_remaining = max(0, days_in_month - today.day)
+        else:
+            days_remaining = days_in_month  # full month remaining if not current month
+
         daily_needed = max(0, (target - monthly_gross) / max(1, days_remaining)) if days_remaining > 0 else 0
 
         contracts.append({
@@ -365,12 +417,6 @@ def contract_settlements(request):
     """Historical contract settlements report."""
     summaries = MonthlyContractSummary.objects.all().order_by('-year', '-month')
 
-    start_date, end_date = _get_date_range(request)
-    summaries = summaries.filter(
-        models_Q_date_range(year=start_date.year, month=start_date.month)
-    ) if False else summaries  # placeholder – full date filtering below
-
-    # Simple year/month filter
     year = request.GET.get('year')
     month = request.GET.get('month')
     if year:
@@ -391,12 +437,6 @@ def contract_settlements(request):
     return render(request, 'reports/contract_settlements.html', context)
 
 
-def models_Q_date_range(year, month):
-    """Helper – not used, kept for clarity."""
-    from django.db.models import Q
-    return Q()
-
-
 # ------------------------------------------------------------------
 # Contract analytics
 # ------------------------------------------------------------------
@@ -410,10 +450,11 @@ def contract_analytics(request):
     total_driver_pay = summaries.aggregate(total=Sum('driver_pay'))['total'] or 0
     total_owner_pay = summaries.aggregate(total=Sum('owner_pay'))['total'] or 0
 
-    # Data for chart
-    chart_labels = [f"{s.month}/{s.year}" for s in summaries[:12]]
-    chart_driver = [float(s.driver_pay) for s in summaries[:12]]
-    chart_owner = [float(s.owner_pay) for s in summaries[:12]]
+    # Data for chart (last 12 months)
+    chart_data = summaries[:12]
+    chart_labels = [f"{s.month}/{s.year}" for s in chart_data]
+    chart_driver = [float(s.driver_pay) for s in chart_data]
+    chart_owner = [float(s.owner_pay) for s in chart_data]
 
     context = {
         'summaries': summaries,
@@ -444,16 +485,13 @@ def tax_report(request):
     total_expenses = settlements.aggregate(total=Sum('total_expenses'))['total'] or 0
     gross_profit = total_income - total_expenses
 
-    # Fixed costs
-    fixed_costs = Vehicle.objects.filter(is_active=True).aggregate(
-        total_insurance=Sum('insurance'),
-        total_permit=Sum('permit_cost'),
-        total_loan=Sum('loan_payment'),
-    )
-    monthly_fixed = sum(
-        (v.insurance + (v.permit_cost / 12) + v.loan_payment)
-        for v in Vehicle.objects.filter(is_active=True)
-    )
+    # Fixed costs for the period (prorated)
+    months_in_period = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month) + 1
+    total_fixed = 0
+    for v in Vehicle.objects.filter(is_active=True):
+        # Annual permit cost / 12 per month, then multiply by months in period
+        monthly_fixed = v.insurance + (v.permit_cost / 12) + v.loan_payment
+        total_fixed += monthly_fixed * months_in_period
 
     context = {
         'start_date': start_date,
@@ -461,7 +499,7 @@ def tax_report(request):
         'total_income': total_income,
         'total_expenses': total_expenses,
         'gross_profit': gross_profit,
-        'monthly_fixed_costs': monthly_fixed,
-        'taxable_income': gross_profit - monthly_fixed,
+        'total_fixed_costs': total_fixed,
+        'taxable_income': gross_profit - total_fixed,
     }
     return render(request, 'reports/tax.html', context)

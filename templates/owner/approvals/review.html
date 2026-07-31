@@ -1,40 +1,48 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Review Settlement{% endblock %}
-{% block content %}
-<h2><i class="bi bi-eye"></i> Review Settlement #{{ settlement.id }}</h2>
 
-<div class="row mt-3">
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-eye"></i> Review Settlement #{{ settlement.id }}</h2>
+    <a href="{% url 'owner_pending_approvals' %}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Pending
+    </a>
+</div>
+
+<div class="row">
     <div class="col-lg-8">
+        <!-- Settlement Details -->
         <div class="card">
             <div class="card-header bg-primary text-white">
-                Settlement Details
+                <i class="bi bi-info-circle"></i> Settlement Details
             </div>
             <div class="card-body">
                 <table class="table table-sm">
                     <tr><th>Date</th><td>{{ settlement.date|date:"d F Y" }}</td></tr>
                     <tr><th>Driver</th><td>{{ settlement.driver.name }}</td></tr>
                     <tr><th>Vehicle</th><td>{{ settlement.vehicle.name }} ({{ settlement.vehicle.plate }})</td></tr>
-                    <tr><th>Operating Model</th><td>{{ settlement.operating_model|title }}</td></tr>
+                    <tr><th>Operating Model</th><td>{{ settlement.get_operating_model_display }}</td></tr>
                     <tr><th>Period</th><td>{{ settlement.get_settlement_period_display }}</td></tr>
                     <tr><th>Status</th><td><span class="badge bg-warning">{{ settlement.get_status_display }}</span></td></tr>
                 </table>
 
                 <h5 class="mt-3">Income</h5>
                 <table class="table table-sm">
-                    <tr><th>Cash Collected</th><td class="amount">M {{ settlement.cash_collected|floatformat:2 }}</td></tr>
-                    <tr><th>Mobile Collected</th><td class="amount">M {{ settlement.mobile_collected|floatformat:2 }}</td></tr>
-                    <tr><th>Card Collected</th><td class="amount">M {{ settlement.card_collected|floatformat:2 }}</td></tr>
-                    <tr><th class="fw-bold">Total Income</th><td class="amount fw-bold">M {{ settlement.total_income|floatformat:2 }}</td></tr>
+                    <tr><th>Cash Collected</th><td class="text-end">M {{ settlement.cash_collected|floatformat:2 }}</td></tr>
+                    <tr><th>Mobile Collected</th><td class="text-end">M {{ settlement.mobile_collected|floatformat:2 }}</td></tr>
+                    <tr><th>Card Collected</th><td class="text-end">M {{ settlement.card_collected|floatformat:2 }}</td></tr>
+                    <tr class="fw-bold"><th>Total Income</th><td class="text-end">M {{ settlement.total_income|floatformat:2 }}</td></tr>
                 </table>
 
                 <h5 class="mt-3">Expenses</h5>
                 <table class="table table-sm">
-                    <tr><th>Fuel</th><td class="amount">M {{ settlement.fuel_expense|floatformat:2 }}</td></tr>
-                    <tr><th>Maintenance</th><td class="amount">M {{ settlement.maintenance_expense|floatformat:2 }}</td></tr>
-                    <tr><th>Toll</th><td class="amount">M {{ settlement.toll_expense|floatformat:2 }}</td></tr>
-                    <tr><th>Other</th><td class="amount">M {{ settlement.other_expense|floatformat:2 }}</td></tr>
-                    <tr><th class="fw-bold">Total Expenses</th><td class="amount fw-bold">M {{ settlement.total_expenses|floatformat:2 }}</td></tr>
-                    <tr><th class="fw-bold">Gross Profit</th><td class="amount fw-bold">M {{ settlement.gross_profit|floatformat:2 }}</td></tr>
+                    <tr><th>Fuel</th><td class="text-end">M {{ settlement.fuel_expense|floatformat:2 }}</td></tr>
+                    <tr><th>Maintenance</th><td class="text-end">M {{ settlement.maintenance_expense|floatformat:2 }}</td></tr>
+                    <tr><th>Toll</th><td class="text-end">M {{ settlement.toll_expense|floatformat:2 }}</td></tr>
+                    <tr><th>Other</th><td class="text-end">M {{ settlement.other_expense|floatformat:2 }}</td></tr>
+                    <tr class="fw-bold"><th>Total Expenses</th><td class="text-end">M {{ settlement.total_expenses|floatformat:2 }}</td></tr>
+                    <tr class="fw-bold text-success"><th>Gross Profit</th><td class="text-end">M {{ settlement.gross_profit|floatformat:2 }}</td></tr>
                 </table>
 
                 {% if settlement.driver_notes %}
@@ -46,33 +54,43 @@
     </div>
 
     <div class="col-lg-4">
+        <!-- Calculation Preview -->
         <div class="card">
             <div class="card-header bg-success text-white">
                 <i class="bi bi-calculator"></i> Calculation Preview
             </div>
             <div class="card-body">
                 <table class="table table-sm">
-                    <tr><th>Driver Pay</th><td class="amount">M {{ settlement.driver_pay|floatformat:2 }}</td></tr>
-                    <tr><th>Owner Collection</th><td class="amount">M {{ settlement.total_owner_collected|floatformat:2 }}</td></tr>
+                    <tr><th>Driver Pay</th><td class="text-end text-success">M {{ settlement.driver_pay|floatformat:2 }}</td></tr>
+                    <tr><th>Owner Collection</th><td class="text-end text-primary">M {{ settlement.total_owner_collected|floatformat:2 }}</td></tr>
                     {% if settlement.operating_model == 'quota' %}
-                    <tr><th>Daily Quota</th><td class="amount">M {{ settlement.daily_quota|floatformat:2 }}</td></tr>
-                    <tr><th>Surplus/Shortfall</th><td class="amount">M {{ settlement.surplus_shortfall|floatformat:2 }}</td></tr>
-                    <tr><th>Debt Repaid</th><td class="amount">M {{ settlement.debt_repaid|floatformat:2 }}</td></tr>
-                    <tr><th>New Debt</th><td class="amount">M {{ settlement.new_debt|floatformat:2 }}</td></tr>
+                    <tr><th>Daily Quota</th><td class="text-end">M {{ settlement.daily_quota|floatformat:2 }}</td></tr>
+                    <tr><th>Surplus/Shortfall</th><td class="text-end {% if settlement.surplus_shortfall >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        M {{ settlement.surplus_shortfall|floatformat:2 }}
+                    </td></tr>
+                    <tr><th>Debt Repaid</th><td class="text-end text-success">M {{ settlement.debt_repaid|floatformat:2 }}</td></tr>
+                    <tr><th>New Debt</th><td class="text-end {% if settlement.new_debt > 0 %}text-danger{% else %}text-success{% endif %}">
+                        M {{ settlement.new_debt|floatformat:2 }}
+                    </td></tr>
+                    <tr><th>Debt Status</th><td>{{ settlement.get_debt_status_display }}</td></tr>
                     {% elif settlement.operating_model == 'salary' %}
-                    <tr><th>Daily Salary</th><td class="amount">M {{ settlement.daily_salary_earned|floatformat:2 }}</td></tr>
+                    <tr><th>Daily Salary</th><td class="text-end">M {{ settlement.daily_salary_earned|floatformat:2 }}</td></tr>
+                    <tr><th>Salary Accrued (MTD)</th><td class="text-end">M {{ settlement.monthly_salary_accumulated|floatformat:2 }}</td></tr>
                     {% elif settlement.operating_model == 'percentage' %}
-                    <tr><th>Driver %</th><td>{{ settlement.driver_percentage|floatformat:0 }}%</td></tr>
-                    <tr><th>Driver Amount</th><td class="amount">M {{ settlement.driver_percentage_amount|floatformat:2 }}</td></tr>
+                    <tr><th>Driver %</th><td class="text-end">{{ settlement.driver_percentage|floatformat:0 }}%</td></tr>
+                    <tr><th>Driver Amount</th><td class="text-end">M {{ settlement.driver_percentage_amount|floatformat:2 }}</td></tr>
+                    <tr><th>Owner Amount</th><td class="text-end">M {{ settlement.owner_percentage_amount|floatformat:2 }}</td></tr>
                     {% elif settlement.operating_model == 'contract' %}
-                    <tr><th>Target</th><td class="amount">M {{ settlement.contract_target|floatformat:2 }}</td></tr>
-                    <tr><th>Monthly Gross</th><td class="amount">M {{ settlement.contract_monthly_gross|floatformat:2 }}</td></tr>
+                    <tr><th>Target</th><td class="text-end">M {{ settlement.contract_target|floatformat:2 }}</td></tr>
+                    <tr><th>Monthly Gross</th><td class="text-end">M {{ settlement.contract_monthly_gross|floatformat:2 }}</td></tr>
+                    <tr><th>Remaining</th><td class="text-end">M {{ settlement.contract_remaining_target|floatformat:2 }}</td></tr>
                     <tr><th>Success?</th><td>{% if settlement.contract_is_success %}<span class="badge bg-success">Yes</span>{% else %}<span class="badge bg-danger">No</span>{% endif %}</td></tr>
                     {% endif %}
                 </table>
             </div>
         </div>
 
+        <!-- Approval Form -->
         <div class="card mt-3">
             <div class="card-header bg-warning text-white">
                 <i class="bi bi-clipboard-data"></i> Approval Action
@@ -80,13 +98,23 @@
             <div class="card-body">
                 <form method="post">
                     {% csrf_token %}
-                    {{ form.as_p }}
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-success btn-lg">
-                            <i class="bi bi-check-circle"></i> Approve Settlement
-                        </button>
-                        <button type="submit" name="status" value="rejected" class="btn btn-danger btn-lg">
-                            <i class="bi bi-x-circle"></i> Reject Settlement
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Action</label>
+                        {{ form.action }}
+                        {% if form.action.errors %}
+                            <div class="text-danger small">{{ form.action.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes for Driver</label>
+                        {{ form.owner_notes }}
+                        {% if form.owner_notes.errors %}
+                            <div class="text-danger small">{{ form.owner_notes.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-save"></i> Submit Decision
                         </button>
                     </div>
                 </form>
