@@ -24,7 +24,6 @@ xhtml2pdf==0.2.12
 
 # Production
 python-decouple==3.8
-=======
 Django>=5.0
 psycopg2-binary
 dj-database-url
