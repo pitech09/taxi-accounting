@@ -3,6 +3,8 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.shortcuts import redirect
+from django.views.generic import RedirectView
+from django.urls import reverse_lazy
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -12,7 +14,9 @@ urlpatterns = [
     path('driver/', include('driver_portal.urls')),
     path('reports/', include('reports.urls')),
     path('api/', include('api.urls')),
-    path('', lambda request: redirect('owner_dashboard' if request.user.is_authenticated else 'admin:login')),
+    
+    # Root: redirect to custom owner login if not authenticated, else dashboard
+    path('', lambda request: redirect('owner_dashboard' if request.user.is_authenticated else 'login')),
 ]
 
 if settings.DEBUG:
