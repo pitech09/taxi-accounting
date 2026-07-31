@@ -6,7 +6,7 @@ dj-database-url==2.1.0
 psycopg[binary] # PostgreSQL driver (psycopg3, supports Python 3.13)
 python-dotenv==1.0.1
 django-extension==0.1.0
-django-extensions==4.1# REST API
+django-extensions==4.1
 djangorestframework==3.15.1
 django-cors-headers==4.3.1
 
