@@ -3,28 +3,23 @@ Django settings for taxiaccounting project.
 Production-ready with environment variable support.
 """
 import os
-<<<<<<< HEAD
 from pathlib import Path
 
 from dotenv import load_dotenv
-=======
+
 from dotenv import load_dotenv
 import dj_database_url
->>>>>>> 64e423b7ca903465804b98ca16d473e9acfe4f87
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load environment variables from .env file
-<<<<<<< HEAD
-load_dotenv(BASE_DIR / '.env')
-=======
 load_dotenv()
 
 # Security
 SECRET_KEY = os.environ.get('SECRET_KEY')
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') + ['localhost', '127.0.0.1']
->>>>>>> 64e423b7ca903465804b98ca16d473e9acfe4f87
 
 # ------------------------------------------------------------------
 # Core settings – read from environment with safe defaults
@@ -92,7 +87,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'taxiaccounting.wsgi.application'
 
-<<<<<<< HEAD
 # ------------------------------------------------------------------
 # Database – PostgreSQL in production, SQLite in dev
 # ------------------------------------------------------------------
@@ -111,17 +105,6 @@ else:
 # ------------------------------------------------------------------
 # Password validation
 # ------------------------------------------------------------------
-=======
-DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL'),
-        conn_max_age=600
-    )
-}
-
-# Note: Set DATABASE_URL environment variable in .env or production environment.
-
->>>>>>> 64e423b7ca903465804b98ca16d473e9acfe4f87
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -137,7 +120,6 @@ TIME_ZONE = 'Africa/Maseru'
 USE_I18N = True
 USE_TZ = True
 
-<<<<<<< HEAD
 # ------------------------------------------------------------------
 # Static & media files
 # ------------------------------------------------------------------
@@ -147,14 +129,6 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
-=======
-# Static files
-STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-MEDIA_URL = 'media/'
->>>>>>> 64e423b7ca903465804b98ca16d473e9acfe4f87
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Cloudinary for media (optional – falls back to local storage)
