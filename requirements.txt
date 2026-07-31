@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Django and Core
 Django==5.0.4
 gunicorn==22.0.0
@@ -23,3 +24,18 @@ xhtml2pdf==0.2.12
 
 # Production
 python-decouple==3.8
+=======
+Django>=5.0
+psycopg2-binary
+dj-database-url
+whitenoise
+gunicorn
+pillow
+django-crispy-forms
+crispy-bootstrap5
+djangorestframework
+django-cors-headers
+reportlab
+openpyxl
+python-dotenv
+>>>>>>> 64e423b7ca903465804b98ca16d473e9acfe4f87

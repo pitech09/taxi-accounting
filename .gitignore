@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Django / Python
 __pycache__/
 *.py[cod]
@@ -40,14 +41,39 @@ staticfiles/
 .env
 *.env
 .env.*
+=======
+# Environment variables
+.env
+.venv/
+venv/
+
+# Django
+*.log
+*.pot
+*.pyc
+__pycache__/
+local_settings.py
+db.sqlite3
+staticfiles/
+media/
+>>>>>>> 64e423b7ca903465804b98ca16d473e9acfe4f87
 
 # IDE
 .vscode/
 .idea/
+<<<<<<< HEAD
 *.swp
 *.swo
 *~
+=======
+>>>>>>> 64e423b7ca903465804b98ca16d473e9acfe4f87
 
 # OS
 .DS_Store
 Thumbs.db
+<<<<<<< HEAD
+=======
+
+# Git
+.git/
+>>>>>>> 64e423b7ca903465804b98ca16d473e9acfe4f87
