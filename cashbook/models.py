@@ -1,35 +1,70 @@
-from decimal import Decimal
+"""
+Cash book models for the Taxi Accounting System.
+
+CashInHand  – singleton tracking physical cash balance.
+BankAccount – tracks individual bank account balances.
+CashTransaction – every cash/bank movement (income, expense, transfer, settlement).
+DailyCashBook – daily summary of cash in/out.
+"""
+from decimal import Decimal, ROUND_HALF_UP
 from django.db import models
 from django.utils import timezone
 
 
+def _round2(value):
+    """Round a Decimal to 2 decimal places using ROUND_HALF_UP."""
+    if value is None:
+        return Decimal('0.00')
+    return Decimal(value).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
 class CashInHand(models.Model):
-    """Singleton model to store current cash balance."""
+    """Singleton model tracking the physical cash balance."""
+
     balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     last_updated = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        verbose_name = 'Cash in Hand'
+        verbose_name_plural = 'Cash in Hand'
+
     def __str__(self):
-        return f"Cash in Hand: M {self.balance:.2f}"
+        return f"Cash in Hand: M {self.balance}"
+
+    # ------------------------------------------------------------------
+    # Singleton helpers
+    # ------------------------------------------------------------------
+    @classmethod
+    def get_instance(cls):
+        """Return the singleton CashInHand instance, creating it if necessary."""
+        obj, created = cls.objects.get_or_create(id=1)
+        return obj
 
     @classmethod
     def get_balance(cls):
-        obj, _ = cls.objects.get_or_create(id=1)
-        return obj.balance
+        """Return the current cash-in-hand balance."""
+        return cls.get_instance().balance
 
     @classmethod
     def add(cls, amount, transaction=None):
-        obj, _ = cls.objects.get_or_create(id=1)
-        obj.balance += amount
-        obj.save()
+        """Add *amount* to the cash-in-hand balance."""
+        instance = cls.get_instance()
+        instance.balance = _round2(instance.balance + amount)
+        instance.save()
+        return instance.balance
 
     @classmethod
     def subtract(cls, amount, transaction=None):
-        obj, _ = cls.objects.get_or_create(id=1)
-        obj.balance -= amount
-        obj.save()
+        """Subtract *amount* from the cash-in-hand balance."""
+        instance = cls.get_instance()
+        instance.balance = _round2(instance.balance - amount)
+        instance.save()
+        return instance.balance
 
 
 class BankAccount(models.Model):
+    """A bank account with an opening and current balance."""
+
     name = models.CharField(max_length=100)
     account_number = models.CharField(max_length=50)
     bank_name = models.CharField(max_length=100)
@@ -38,6 +73,7 @@ class BankAccount(models.Model):
     current_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['name']
@@ -45,8 +81,28 @@ class BankAccount(models.Model):
     def __str__(self):
         return f"{self.name} ({self.bank_name})"
 
+    def add_balance(self, amount):
+        """Increase the bank account balance."""
+        self.current_balance = _round2(self.current_balance + amount)
+        self.save()
+        return self.current_balance
+
+    def subtract_balance(self, amount):
+        """Decrease the bank account balance."""
+        self.current_balance = _round2(self.current_balance - amount)
+        self.save()
+        return self.current_balance
+
+    def save(self, *args, **kwargs):
+        """Set current_balance to opening_balance on first save."""
+        if not self.pk:
+            self.current_balance = _round2(self.opening_balance)
+        super().save(*args, **kwargs)
+
 
 class CashTransaction(models.Model):
+    """A single cash or bank transaction."""
+
     TRANSACTION_TYPES = [
         ('addition', 'Cash Addition'),
         ('withdrawal', 'Cash Withdrawal'),
@@ -62,7 +118,7 @@ class CashTransaction(models.Model):
         ('settlement_collection', 'Settlement Collection'),
     ]
 
-    CATEGORY_CHOICES = [
+    CATEGORIES = [
         ('settlement_collection', 'Driver Settlement Collection'),
         ('other_income', 'Other Income'),
         ('loan_income', 'Loan Received'),
@@ -79,26 +135,28 @@ class CashTransaction(models.Model):
         ('petty_cash_expense', 'Petty Cash Expense'),
     ]
 
-    # Relations
     settlement = models.ForeignKey(
         'settlements.DailySettlement',
-        on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='cash_transactions'
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cash_transactions',
     )
     bank_account = models.ForeignKey(
-        BankAccount, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='transactions'
+        BankAccount,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='transactions',
     )
 
     transaction_type = models.CharField(max_length=30, choices=TRANSACTION_TYPES)
-    category = models.CharField(max_length=30, choices=CATEGORY_CHOICES)
+    category = models.CharField(max_length=30, choices=CATEGORIES)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
-    date = models.DateField()
-
+    date = models.DateField(default=timezone.now)
     reference = models.CharField(max_length=100, blank=True)
     receipt_photo = models.ImageField(upload_to='receipts/', null=True, blank=True)
 
-    # Running balances (calculated on save)
     cash_balance_after = models.DecimalField(
         max_digits=12, decimal_places=2, editable=False, null=True, blank=True
     )
@@ -107,202 +165,71 @@ class CashTransaction(models.Model):
     )
 
     notes = models.TextField(blank=True)
-    created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True)
+    created_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cash_transactions',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-date', '-created_at']
 
     def __str__(self):
-        return f"{self.get_transaction_type_display()} - M {self.amount:.2f} ({self.date})"
-
-    def _d(self, value):
-        if isinstance(value, Decimal):
-            return value
-        return Decimal(str(value))
+        return f"{self.get_transaction_type_display()} - M {self.amount} on {self.date}"
 
     def save(self, *args, **kwargs):
-        self.amount = self._d(self.amount)
+        """
+        Update CashInHand and/or BankAccount balances based on transaction type,
+        and store the resulting balances in cash_balance_after / bank_balance_after.
+        """
         is_new = self.pk is None
 
-        # Determine if this transaction affects cash in hand or bank
-        cash_increase_types = ['addition', 'transfer_from_bank', 'settlement_collection']
-        cash_decrease_types = ['withdrawal', 'transfer_to_bank', 'expense_cash', 'petty_cash',
-                               'salary_payment', 'commission_payment', 'bonus_payment', 'loan_repayment']
-        bank_increase_types = ['transfer_from_bank']
-        bank_decrease_types = ['transfer_to_bank', 'expense_bank']
+        if is_new:
+            # Process the transaction
+            if self.transaction_type in ('addition', 'transfer_from_bank', 'settlement_collection'):
+                CashInHand.add(self.amount, self)
+            elif self.transaction_type in ('withdrawal', 'transfer_to_bank', 'expense_cash',
+                                           'petty_cash', 'salary_payment', 'commission_payment',
+                                           'bonus_payment', 'loan_repayment'):
+                CashInHand.subtract(self.amount, self)
 
-        # If editing, reverse previous effects first
-        if not is_new:
-            old = CashTransaction.objects.get(pk=self.pk)
-            self._reverse_previous_effect(old)
+            if self.transaction_type == 'transfer_to_bank' and self.bank_account:
+                self.bank_account.add_balance(self.amount)
+            elif self.transaction_type == 'transfer_from_bank' and self.bank_account:
+                self.bank_account.subtract_balance(self.amount)
+            elif self.transaction_type in ('expense_bank',) and self.bank_account:
+                self.bank_account.subtract_balance(self.amount)
 
-        # Save the transaction first
+            # Store resulting balances
+            self.cash_balance_after = CashInHand.get_balance()
+            if self.bank_account:
+                self.bank_balance_after = self.bank_account.current_balance
+            else:
+                self.bank_balance_after = None
+
         super().save(*args, **kwargs)
-
-        # Update Cash in Hand
-        if self.transaction_type in cash_increase_types:
-            CashInHand.add(self.amount, self)
-        elif self.transaction_type in cash_decrease_types:
-            CashInHand.subtract(self.amount, self)
-        self.cash_balance_after = CashInHand.get_balance()
-
-        # Update Bank balance
-        if self.bank_account:
-            if self.transaction_type in bank_increase_types:
-                self.bank_account.current_balance += self.amount
-            elif self.transaction_type in bank_decrease_types:
-                self.bank_account.current_balance -= self.amount
-            self.bank_account.save()
-            self.bank_balance_after = self.bank_account.current_balance
-
-        # Update computed fields without re-triggering save
-        CashTransaction.objects.filter(pk=self.pk).update(
-            cash_balance_after=self.cash_balance_after,
-            bank_balance_after=self.bank_balance_after,
-        )
-
-    def delete(self, *args, **kwargs):
-        # Reverse effects before deleting
-        cash_increase_types = ['addition', 'transfer_from_bank', 'settlement_collection']
-        cash_decrease_types = ['withdrawal', 'transfer_to_bank', 'expense_cash', 'petty_cash',
-                               'salary_payment', 'commission_payment', 'bonus_payment', 'loan_repayment']
-        bank_increase_types = ['transfer_from_bank']
-        bank_decrease_types = ['transfer_to_bank', 'expense_bank']
-
-        if self.transaction_type in cash_increase_types:
-            CashInHand.subtract(self.amount, self)
-        elif self.transaction_type in cash_decrease_types:
-            CashInHand.add(self.amount, self)
-
-        if self.bank_account:
-            if self.transaction_type in bank_increase_types:
-                self.bank_account.current_balance -= self.amount
-            elif self.transaction_type in bank_decrease_types:
-                self.bank_account.current_balance += self.amount
-            self.bank_account.save()
-
-        super().delete(*args, **kwargs)
-
-    def _reverse_previous_effect(self, old):
-        """Reverse the effect of the previous version of this transaction."""
-        cash_increase_types = ['addition', 'transfer_from_bank', 'settlement_collection']
-        cash_decrease_types = ['withdrawal', 'transfer_to_bank', 'expense_cash', 'petty_cash',
-                               'salary_payment', 'commission_payment', 'bonus_payment', 'loan_repayment']
-        bank_increase_types = ['transfer_from_bank']
-        bank_decrease_types = ['transfer_to_bank', 'expense_bank']
-
-        if old.transaction_type in cash_increase_types:
-            CashInHand.subtract(old.amount, old)
-        elif old.transaction_type in cash_decrease_types:
-            CashInHand.add(old.amount, old)
-
-        if old.bank_account:
-            if old.transaction_type in bank_increase_types:
-                old.bank_account.current_balance -= old.amount
-            elif old.transaction_type in bank_decrease_types:
-                old.bank_account.current_balance += old.amount
-            old.bank_account.save()
-
-    @property
-    def is_inflow(self):
-        """Whether this transaction increases cash in hand."""
-        return self.transaction_type in ['addition', 'transfer_from_bank', 'settlement_collection']
-
-    @property
-    def is_outflow(self):
-        """Whether this transaction decreases cash in hand."""
-        return self.transaction_type in [
-            'withdrawal', 'transfer_to_bank', 'expense_cash', 'petty_cash',
-            'salary_payment', 'commission_payment', 'bonus_payment', 'loan_repayment'
-        ]
-
-    @property
-    def affects_cash(self):
-        return self.transaction_type in [
-            'addition', 'withdrawal', 'transfer_to_bank', 'transfer_from_bank',
-            'expense_cash', 'petty_cash', 'settlement_collection',
-            'salary_payment', 'commission_payment', 'bonus_payment', 'loan_repayment'
-        ]
-
-    @property
-    def affects_bank(self):
-        return self.transaction_type in ['transfer_to_bank', 'transfer_from_bank', 'expense_bank']
 
 
 class DailyCashBook(models.Model):
-    date = models.DateField(unique=True)
+    """Daily summary of cash in/out for the cash book."""
 
-    # Cash movements
+    date = models.DateField(unique=True)
     opening_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_cash_in = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_cash_out = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     closing_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-
-    # Bank movements
-    total_bank_deposits = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    total_bank_withdrawals = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    bank_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-
-    # Summary
-    total_settlement_collections = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    total_vehicle_expenses = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    total_driver_payments = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    total_business_expenses = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    net_cash_flow = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date']
 
     def __str__(self):
         return f"Cash Book - {self.date}"
 
-    def calculate_totals(self):
-        """Recalculate totals from transactions."""
-        from django.db.models import Sum
-
-        cash_in_types = ['addition', 'transfer_from_bank', 'settlement_collection']
-        cash_out_types = ['withdrawal', 'transfer_to_bank', 'expense_cash', 'petty_cash',
-                          'salary_payment', 'commission_payment', 'bonus_payment', 'loan_repayment']
-
-        cash_in = CashTransaction.objects.filter(
-            date=self.date,
-            transaction_type__in=cash_in_types
-        ).aggregate(Sum('amount'))['amount__sum'] or 0
-
-        cash_out = CashTransaction.objects.filter(
-            date=self.date,
-            transaction_type__in=cash_out_types
-        ).aggregate(Sum('amount'))['amount__sum'] or 0
-
-        self.total_cash_in = cash_in
-        self.total_cash_out = cash_out
-        self.closing_balance = self.opening_balance + cash_in - cash_out
-
-        self.total_bank_deposits = CashTransaction.objects.filter(
-            date=self.date, transaction_type='transfer_to_bank'
-        ).aggregate(Sum('amount'))['amount__sum'] or 0
-
-        self.total_bank_withdrawals = CashTransaction.objects.filter(
-            date=self.date, transaction_type='transfer_from_bank'
-        ).aggregate(Sum('amount'))['amount__sum'] or 0
-
-        self.total_settlement_collections = CashTransaction.objects.filter(
-            date=self.date, category='settlement_collection'
-        ).aggregate(Sum('amount'))['amount__sum'] or 0
-
-        self.total_vehicle_expenses = CashTransaction.objects.filter(
-            date=self.date, category__in=['fuel', 'maintenance', 'insurance', 'permit']
-        ).aggregate(Sum('amount'))['amount__sum'] or 0
-
-        self.total_driver_payments = CashTransaction.objects.filter(
-            date=self.date, category__in=['driver_salary', 'driver_commission', 'driver_bonus']
-        ).aggregate(Sum('amount'))['amount__sum'] or 0
-
-        self.total_business_expenses = CashTransaction.objects.filter(
-            date=self.date, transaction_type__in=['expense_cash', 'expense_bank', 'petty_cash']
-        ).aggregate(Sum('amount'))['amount__sum'] or 0
-
-        self.net_cash_flow = cash_in - cash_out
-
-        self.save()
+    @property
+    def net_cash_flow(self):
+        return _round2(self.total_cash_in - self.total_cash_out)

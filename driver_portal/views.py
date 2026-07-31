@@ -1,6 +1,8 @@
+"""
+Driver portal views.
+Drivers authenticate with their 4-digit driver code and portal password.
+"""
 from django.shortcuts import render, redirect, get_object_or_404
-from django.db.models import Sum
-from django.contrib.auth.hashers import check_password
 from django.contrib import messages
 from django.utils import timezone
 from datetime import date, timedelta
@@ -8,350 +10,310 @@ import calendar
 
 from drivers.models import Driver
 from settlements.models import DailySettlement
-from settlements.forms import DriverSettlementForm
+from settlements.forms import DailySettlementForm
+from cashbook.models import CashTransaction
 from accounts.models import SystemSettings
 
 
-def _get_driver(request):
-    """Return the logged-in driver or redirect to login."""
-    driver_id = request.session.get('driver_id')
-    if not driver_id:
-        return None
-    return get_object_or_404(Driver, id=driver_id)
-
-
+# ------------------------------------------------------------------
+# Authentication
+# ------------------------------------------------------------------
 def login(request):
+    """Driver login using driver_code + portal password."""
     if request.method == 'POST':
-        driver_code = request.POST.get('driver_code')
-        password = request.POST.get('password')
+        driver_code = request.POST.get('driver_code', '').strip()
+        password = request.POST.get('password', '')
 
         try:
             driver = Driver.objects.get(driver_code=driver_code, is_portal_enabled=True)
-            if check_password(password, driver.portal_password):
-                request.session['driver_id'] = driver.id
-                request.session['driver_name'] = driver.name
-                driver.last_login = timezone.now()
-                driver.save()
-                return redirect('driver_dashboard')
-            else:
-                messages.error(request, 'Invalid password')
         except Driver.DoesNotExist:
-            messages.error(request, 'Driver not found or portal not enabled')
+            messages.error(request, 'Invalid driver code or portal not enabled.')
+            return render(request, 'driver_portal/login.html')
+
+        if driver.check_portal_password(password):
+            request.session['driver_id'] = driver.id
+            driver.last_login = timezone.now()
+            driver.save()
+            messages.success(request, f'Welcome, {driver.name}!')
+            return redirect('driver_dashboard')
+        else:
+            messages.error(request, 'Invalid password.')
+            return render(request, 'driver_portal/login.html')
 
     return render(request, 'driver_portal/login.html')
 
 
 def logout(request):
-    request.session.flush()
+    """Log the driver out."""
+    request.session.pop('driver_id', None)
+    messages.info(request, 'You have been logged out.')
     return redirect('driver_login')
 
 
+def get_current_driver(request):
+    """Helper to retrieve the logged-in driver from session."""
+    driver_id = request.session.get('driver_id')
+    if not driver_id:
+        return None
+    try:
+        return Driver.objects.get(id=driver_id, is_portal_enabled=True)
+    except Driver.DoesNotExist:
+        return None
+
+
+def driver_login_required(view_func):
+    """Decorator: redirect to driver login if not authenticated."""
+    from functools import wraps
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        driver = get_current_driver(request)
+        if not driver:
+            return redirect('driver_login')
+        request.driver = driver
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+# ------------------------------------------------------------------
+# Dashboard
+# ------------------------------------------------------------------
+@driver_login_required
 def dashboard(request):
-    driver = _get_driver(request)
-    if not driver:
-        return redirect('driver_login')
+    """Driver dashboard showing vehicle, model, recent settlements, quick actions."""
+    driver = request.driver
+    settings = SystemSettings.get_settings()
 
-    today = date.today()
-    month_start = today.replace(day=1)
+    # Recent settlements (last 5)
+    recent = driver.settlements.all().order_by('-date')[:5]
 
-    # Recent settlements
-    recent_settlements = DailySettlement.objects.filter(driver=driver).order_by('-date', '-id')[:10]
+    # Pending approval count
+    pending_count = driver.settlements.filter(status='submitted').count()
 
-    # Monthly summary (approved only for financials)
-    monthly_settlements = DailySettlement.objects.filter(
-        driver=driver, date__gte=month_start, date__lte=today, status='approved'
-    )
-    monthly_income = sum(s.total_income for s in monthly_settlements)
-    monthly_driver_pay = sum(s.driver_pay for s in monthly_settlements)
-
-    # Pending settlements (submitted, awaiting approval)
-    pending_count = DailySettlement.objects.filter(driver=driver, status='submitted').count()
-    rejected_count = DailySettlement.objects.filter(driver=driver, status='rejected').count()
-    draft_count = DailySettlement.objects.filter(driver=driver, status='draft').count()
-
-    # Last settlement status
-    last_settlement = DailySettlement.objects.filter(driver=driver).order_by('-date', '-id').first()
-
-    # Debt balance (for quota system)
+    # Debt balance (for quota model)
     debt_balance = driver.debt_balance
 
-    # Contract progress (for contract system)
-    contract_progress = 0
-    contract_target = 0
-    contract_monthly_gross = 0
-    contract_remaining = 0
+    # Contract progress (for contract model)
+    contract_progress = None
     if driver.vehicle and driver.vehicle.operating_model == 'contract':
-        contract_settlements = DailySettlement.objects.filter(
-            driver=driver, date__gte=month_start, date__lte=today,
-            operating_model='contract', status='approved'
+        today = date.today()
+        month_settlements = driver.settlements.filter(
+            status='approved', operating_model='contract',
+            date__year=today.year, date__month=today.month
         )
-        contract_monthly_gross = sum(s.total_income for s in contract_settlements)
-        contract_target = driver.effective_contract_target
-        contract_remaining = max(0, contract_target - contract_monthly_gross)
-        contract_progress = min(100, (contract_monthly_gross / contract_target * 100)) if contract_target > 0 else 0
+        monthly_gross = sum(s.total_income for s in month_settlements)
+        target = driver.effective_contract_target
+        progress = (monthly_gross / target * 100) if target > 0 else 0
+        _, days_in_month = calendar.monthrange(today.year, today.month)
+        days_remaining = days_in_month - today.day
+        contract_progress = {
+            'target': target,
+            'monthly_gross': monthly_gross,
+            'progress': round(progress, 1),
+            'days_remaining': days_remaining,
+        }
 
     context = {
         'driver': driver,
-        'recent_settlements': recent_settlements,
-        'monthly_income': monthly_income,
-        'monthly_driver_pay': monthly_driver_pay,
+        'settings': settings,
+        'recent_settlements': recent,
+        'pending_count': pending_count,
         'debt_balance': debt_balance,
         'contract_progress': contract_progress,
-        'contract_target': contract_target,
-        'contract_monthly_gross': contract_monthly_gross,
-        'contract_remaining': contract_remaining,
-        'pending_count': pending_count,
-        'rejected_count': rejected_count,
-        'draft_count': draft_count,
-        'last_settlement': last_settlement,
     }
     return render(request, 'driver_portal/dashboard.html', context)
 
 
+# ------------------------------------------------------------------
+# Settlements
+# ------------------------------------------------------------------
+@driver_login_required
+def settlements(request):
+    """List all settlements for the logged-in driver."""
+    driver = request.driver
+    settlements = driver.settlements.all().order_by('-date')
+    return render(request, 'driver_portal/settlements.html', {
+        'driver': driver,
+        'settlements': settlements,
+    })
+
+
+@driver_login_required
 def settlement_create(request):
-    driver = _get_driver(request)
-    if not driver:
-        return redirect('driver_login')
-
-    if not driver.vehicle:
-        messages.error(request, 'You have no vehicle assigned. Contact the owner.')
-        return redirect('driver_dashboard')
-
-    # Determine default frequency
-    default_freq = driver.settlement_frequency or driver.vehicle.default_settlement_frequency
+    """Create a new settlement (daily or weekly)."""
+    driver = request.driver
 
     if request.method == 'POST':
-        form = DriverSettlementForm(request.POST)
+        form = DailySettlementForm(request.POST, request.FILES, driver=driver)
         if form.is_valid():
             settlement = form.save(commit=False)
             settlement.driver = driver
             settlement.vehicle = driver.vehicle
-
-            # Check for existing settlement on the same date (unique constraint)
-            existing = DailySettlement.objects.filter(
-                vehicle=settlement.vehicle,
-                driver=settlement.driver,
-                date=settlement.date,
-            ).first()
-
-            if existing:
-                if existing.status in ('draft', 'rejected'):
-                    messages.info(
-                        request,
-                        f'A settlement for {settlement.date} already exists. '
-                        f'You can edit and resubmit it.'
-                    )
-                    return redirect('driver_settlement_edit', settlement_id=existing.id)
-                else:
-                    messages.error(
-                        request,
-                        f'A settlement for {settlement.date} already exists '
-                        f'and is {existing.get_status_display().lower()}. '
-                        f'You cannot create a duplicate.'
-                    )
-                    return redirect('driver_settlements')
-
+            settlement.operating_model = driver.vehicle.operating_model if driver.vehicle else 'quota'
             settlement.status = 'submitted'
             settlement.submitted_at = timezone.now()
             settlement.save()
-            messages.success(request, 'Settlement submitted successfully! Awaiting owner approval.')
+            messages.success(request, 'Settlement submitted for approval.')
             return redirect('driver_settlements')
     else:
-        # Pre-fill date with today and default frequency
-        initial = {
-            'settlement_period': default_freq,
-            'date': date.today().isoformat(),
-        }
-        # Default week: Monday to Sunday
-        today = date.today()
-        monday = today - timedelta(days=today.weekday())
-        sunday = monday + timedelta(days=6)
-        initial['week_start'] = monday.isoformat()
-        initial['week_end'] = sunday.isoformat()
-        form = DriverSettlementForm(initial=initial)
+        form = DailySettlementForm(driver=driver)
 
     return render(request, 'driver_portal/settlement_form.html', {
         'driver': driver,
         'form': form,
-        'is_edit': False,
     })
 
 
-def settlement_edit(request, settlement_id):
-    driver = _get_driver(request)
-    if not driver:
-        return redirect('driver_login')
-
-    settlement = get_object_or_404(DailySettlement, id=settlement_id, driver=driver)
-
-    # Only allow editing if draft or rejected
-    if settlement.status not in ('draft', 'rejected'):
-        messages.error(request, 'You can only edit settlements that are in draft or rejected status.')
-        return redirect('driver_settlements')
-
-    if request.method == 'POST':
-        form = DriverSettlementForm(request.POST, instance=settlement)
-        if form.is_valid():
-            settlement = form.save(commit=False)
-            settlement.status = 'submitted'
-            settlement.submitted_at = timezone.now()
-            settlement.save()
-            messages.success(request, 'Settlement updated and resubmitted for approval.')
-            return redirect('driver_settlements')
-    else:
-        form = DriverSettlementForm(instance=settlement)
-
-    return render(request, 'driver_portal/settlement_form.html', {
-        'driver': driver,
-        'form': form,
-        'is_edit': True,
-        'settlement': settlement,
-    })
-
-
+@driver_login_required
 def settlement_view(request, settlement_id):
-    driver = _get_driver(request)
-    if not driver:
-        return redirect('driver_login')
-
+    """View a settlement's details."""
+    driver = request.driver
     settlement = get_object_or_404(DailySettlement, id=settlement_id, driver=driver)
-
     return render(request, 'driver_portal/settlement_view.html', {
         'driver': driver,
         'settlement': settlement,
     })
 
 
-def settlement_print(request, settlement_id):
-    driver = _get_driver(request)
-    if not driver:
-        return redirect('driver_login')
-
+@driver_login_required
+def settlement_edit(request, settlement_id):
+    """Edit a settlement (only if draft or rejected)."""
+    driver = request.driver
     settlement = get_object_or_404(DailySettlement, id=settlement_id, driver=driver)
 
-    try:
-        settings = SystemSettings.objects.first()
-    except SystemSettings.DoesNotExist:
-        settings = None
+    if settlement.status not in ('draft', 'rejected'):
+        messages.error(request, 'Only draft or rejected settlements can be edited.')
+        return redirect('driver_settlement_view', settlement_id=settlement.id)
 
+    if request.method == 'POST':
+        form = DailySettlementForm(request.POST, request.FILES, instance=settlement, driver=driver)
+        if form.is_valid():
+            settlement = form.save(commit=False)
+            settlement.status = 'submitted'
+            settlement.submitted_at = timezone.now()
+            settlement.save()
+            messages.success(request, 'Settlement resubmitted for approval.')
+            return redirect('driver_settlements')
+    else:
+        form = DailySettlementForm(instance=settlement, driver=driver)
+
+    return render(request, 'driver_portal/settlement_form.html', {
+        'driver': driver,
+        'form': form,
+        'edit_mode': True,
+        'settlement': settlement,
+    })
+
+
+@driver_login_required
+def settlement_print(request, settlement_id):
+    """Print-friendly settlement slip."""
+    driver = request.driver
+    settlement = get_object_or_404(DailySettlement, id=settlement_id, driver=driver)
     return render(request, 'driver_portal/settlement_print.html', {
         'driver': driver,
         'settlement': settlement,
-        'settings': settings,
     })
 
 
-def settlements(request):
-    driver = _get_driver(request)
-    if not driver:
-        return redirect('driver_login')
-
-    # Filter by status and date if provided
-    status_filter = request.GET.get('status', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-
-    all_settlements = DailySettlement.objects.filter(driver=driver).order_by('-date', '-id')
-
-    if status_filter:
-        all_settlements = all_settlements.filter(status=status_filter)
-    if date_from:
-        all_settlements = all_settlements.filter(date__gte=date_from)
-    if date_to:
-        all_settlements = all_settlements.filter(date__lte=date_to)
-
-    # Summary counts
-    status_counts = {
-        'draft': DailySettlement.objects.filter(driver=driver, status='draft').count(),
-        'submitted': DailySettlement.objects.filter(driver=driver, status='submitted').count(),
-        'approved': DailySettlement.objects.filter(driver=driver, status='approved').count(),
-        'rejected': DailySettlement.objects.filter(driver=driver, status='rejected').count(),
-    }
-
-    return render(request, 'driver_portal/settlements.html', {
-        'driver': driver,
-        'settlements': all_settlements,
-        'status_counts': status_counts,
-        'status_filter': status_filter,
-        'date_from': date_from,
-        'date_to': date_to,
-    })
-
-
+# ------------------------------------------------------------------
+# Contract & Debt
+# ------------------------------------------------------------------
+@driver_login_required
 def contract(request):
-    driver = _get_driver(request)
-    if not driver:
-        return redirect('driver_login')
+    """Contract progress dashboard for contract-model drivers."""
+    driver = request.driver
 
     if not driver.vehicle or driver.vehicle.operating_model != 'contract':
-        messages.error(request, 'You are not on the contract system')
+        messages.info(request, 'You are not on a contract operating model.')
         return redirect('driver_dashboard')
 
     today = date.today()
     month_start = today.replace(day=1)
 
-    settlements = DailySettlement.objects.filter(
-        driver=driver, date__gte=month_start, date__lte=today,
-        operating_model='contract', status='approved'
+    monthly_settlements = driver.settlements.filter(
+        status='approved', operating_model='contract',
+        date__gte=month_start, date__lte=today
     ).order_by('date')
 
-    monthly_gross = sum(s.total_income for s in settlements)
+    monthly_gross = sum(s.total_income for s in monthly_settlements)
     target = driver.effective_contract_target
-    remaining = max(0, target - monthly_gross)
-    progress = min(100, (monthly_gross / target * 100)) if target > 0 else 0
-
+    progress = (monthly_gross / target * 100) if target > 0 else 0
     _, days_in_month = calendar.monthrange(today.year, today.month)
     days_remaining = days_in_month - today.day
-    days_passed = today.day
-
-    daily_average_needed = remaining / days_remaining if days_remaining > 0 else 0
-    daily_average_current = monthly_gross / days_passed if days_passed > 0 else 0
-
-    # Calculate payouts
-    if monthly_gross >= target:
-        is_success = True
-        bonus_type = driver.vehicle.contract_success_bonus_type
-        if bonus_type == 'fixed':
-            success_bonus = driver.effective_contract_success_bonus_fixed
-        elif bonus_type == 'percentage':
-            success_bonus = (driver.effective_contract_success_bonus_percentage / 100) * monthly_gross
-        else:
-            success_bonus = driver.effective_contract_success_bonus_fixed + \
-                (driver.effective_contract_success_bonus_percentage / 100) * monthly_gross
-        success_pay = success_bonus
-        failure_pay = 0
-    else:
-        is_success = False
-        failure_pct = driver.effective_contract_failure_percentage
-        success_bonus = 0
-        success_pay = 0
-        failure_pay = (failure_pct / 100) * monthly_gross
+    daily_needed = max(0, (target - monthly_gross) / max(1, days_remaining)) if days_remaining > 0 else 0
 
     context = {
         'driver': driver,
-        'daily_settlements': settlements,
-        'monthly_gross': monthly_gross,
         'target': target,
-        'remaining': remaining,
-        'progress': progress,
+        'monthly_gross': monthly_gross,
+        'remaining': max(0, target - monthly_gross),
+        'progress': round(progress, 1),
         'days_remaining': days_remaining,
-        'days_passed': days_passed,
-        'daily_average_needed': daily_average_needed,
-        'daily_average_current': daily_average_current,
-        'is_success': is_success,
-        'success_bonus': success_bonus,
-        'success_pay': success_pay,
-        'failure_pay': failure_pay,
-        'failure_percentage': driver.effective_contract_failure_percentage,
-        'month_name': today.strftime('%B'),
-        'year': today.year,
+        'daily_average_needed': daily_needed,
+        'settlements': monthly_settlements,
     }
     return render(request, 'driver_portal/contract.html', context)
 
 
-def profile(request):
-    driver = _get_driver(request)
-    if not driver:
-        return redirect('driver_login')
+@driver_login_required
+def debt(request):
+    """Debt ledger for quota-model drivers."""
+    driver = request.driver
 
+    if not driver.vehicle or driver.vehicle.operating_model != 'quota':
+        messages.info(request, 'You are not on a quota operating model.')
+        return redirect('driver_dashboard')
+
+    settlements = driver.settlements.filter(
+        status='approved', operating_model='quota'
+    ).order_by('-date')
+
+    context = {
+        'driver': driver,
+        'settlements': settlements,
+        'current_debt': driver.debt_balance,
+    }
+    return render(request, 'driver_portal/debt.html', context)
+
+
+# ------------------------------------------------------------------
+# Profile
+# ------------------------------------------------------------------
+@driver_login_required
+def profile(request):
+    """Driver profile view."""
+    driver = request.driver
     return render(request, 'driver_portal/profile.html', {'driver': driver})
+
+
+@driver_login_required
+def change_password(request):
+    """Allow driver to change their portal password."""
+    driver = request.driver
+
+    if request.method == 'POST':
+        current_password = request.POST.get('current_password', '')
+        new_password = request.POST.get('new_password', '')
+        confirm_password = request.POST.get('confirm_password', '')
+
+        # Validate current password
+        if not driver.check_portal_password(current_password):
+            messages.error(request, 'Current password is incorrect.')
+            return render(request, 'driver_portal/change_password.html')
+
+        # Validate new password
+        if len(new_password) < 4:
+            messages.error(request, 'New password must be at least 4 characters.')
+            return render(request, 'driver_portal/change_password.html')
+
+        if new_password != confirm_password:
+            messages.error(request, 'New passwords do not match.')
+            return render(request, 'driver_portal/change_password.html')
+
+        # Update password
+        driver.set_portal_password(new_password)
+        driver.save()
+        messages.success(request, 'Password changed successfully.')
+        return redirect('driver_profile')
+
+    return render(request, 'driver_portal/change_password.html')

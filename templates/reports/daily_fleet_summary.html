@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Daily Fleet Summary - {{ company_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">Daily Fleet Summary</h1>
+    <div class="no-print">
+        <a href="{% url 'report_index' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back to Reports
+        </a>
+    </div>
+</div>
+
+<!-- Date Filter -->
+<div class="card mb-4 no-print">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Date</label>
+                <input type="date" class="form-control" name="date" value="{{ target_date|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> View
+                </button>
+            </div>
+            <div class="col-md-2">
+                <button onclick="window.print()" class="btn btn-outline-secondary w-100">
+                    <i class="bi bi-printer"></i> Print
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-icon"><i class="bi bi-cash"></i></div>
+            <div class="stat-value">M {{ summary.total_income|default:0|floatformat:2 }}</div>
+            <div class="stat-label">Total Income</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-icon"><i class="bi bi-cash-stack"></i></div>
+            <div class="stat-value">M {{ summary.total_expenses|default:0|floatformat:2 }}</div>
+            <div class="stat-label">Total Expenses</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-icon"><i class="bi bi-graph-up"></i></div>
+            <div class="stat-value">M {{ summary.total_gross|default:0|floatformat:2 }}</div>
+            <div class="stat-label">Gross Profit</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-icon"><i class="bi bi-person"></i></div>
+            <div class="stat-value">M {{ summary.total_owner|default:0|floatformat:2 }}</div>
+            <div class="stat-label">Owner Collection</div>
+        </div>
+    </div>
+</div>
+
+<!-- Fleet Summary Table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-truck"></i> Fleet Summary for {{ target_date|date:"F j, Y" }}</span>
+        <span class="badge bg-info">{{ settlements|length }} settlement(s)</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Vehicle</th>
+                        <th>Driver</th>
+                        <th>Model</th>
+                        <th class="text-end">Income</th>
+                        <th class="text-end">Expenses</th>
+                        <th class="text-end">Gross Profit</th>
+                        <th class="text-end">Driver Pay</th>
+                        <th class="text-end">Owner Collection</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in settlements %}
+                    <tr>
+                        <td>{{ s.vehicle.name }}</td>
+                        <td>{{ s.driver.name }}</td>
+                        <td><span class="badge bg-secondary">{{ s.get_operating_model_display }}</span></td>
+                        <td class="text-end amount">M {{ s.total_income|floatformat:2 }}</td>
+                        <td class="text-end amount">M {{ s.total_expenses|floatformat:2 }}</td>
+                        <td class="text-end amount amount-{% if s.gross_profit >= 0 %}positive{% else %}negative{% endif %}">
+                            M {{ s.gross_profit|floatformat:2 }}
+                        </td>
+                        <td class="text-end amount">M {{ s.driver_pay|floatformat:2 }}</td>
+                        <td class="text-end amount amount-positive">M {{ s.total_owner_collected|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-4 text-muted">
+                            No settlements found for this date.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light fw-bold">
+                    <tr>
+                        <td colspan="3">Totals</td>
+                        <td class="text-end amount">M {{ summary.total_income|default:0|floatformat:2 }}</td>
+                        <td class="text-end amount">M {{ summary.total_expenses|default:0|floatformat:2 }}</td>
+                        <td class="text-end amount">M {{ summary.total_gross|default:0|floatformat:2 }}</td>
+                        <td class="text-end amount">M {{ summary.total_driver_pay|default:0|floatformat:2 }}</td>
+                        <td class="text-end amount">M {{ summary.total_owner|default:0|floatformat:2 }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

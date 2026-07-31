@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block title %}Bank Reconciliation{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-bank2"></i> Bank Reconciliation Report</h2>
+    <a href="{% url 'report_index' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Reports</a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-funnel"></i> Filters</div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Start Date</label>
+                <input type="date" name="start_date" value="{{ start_date|date:'Y-m-d' }}" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">End Date</label>
+                <input type="date" name="end_date" value="{{ end_date|date:'Y-m-d' }}" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Bank Account</label>
+                <select name="bank" class="form-select">
+                    <option value="">All Banks</option>
+                    {% for b in banks %}
+                    <option value="{{ b.id }}">{{ b.name }} ({{ b.bank_name }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Filter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if bank %}
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center stat-card">
+            <div class="card-body">
+                <div class="stat-icon"><i class="bi bi-bank"></i></div>
+                <div class="stat-value">M {{ current_balance|floatformat:2 }}</div>
+                <div class="stat-label">{{ bank.name }} Balance</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center stat-card">
+            <div class="card-body">
+                <div class="stat-icon"><i class="bi bi-arrow-down-circle text-success"></i></div>
+                <div class="stat-value amount-positive">M {{ deposits|floatformat:2 }}</div>
+                <div class="stat-label">Transfers</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center stat-card">
+            <div class="card-body">
+                <div class="stat-icon"><i class="bi bi-calendar-range"></i></div>
+                <div class="stat-value small">{{ start_date|date:"d M" }} - {{ end_date|date:"d M Y" }}</div>
+                <div class="stat-label">Period</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header bg-primary text-white"><i class="bi bi-list-ul"></i> Transactions for {{ bank.name }}</div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Category</th>
+                        <th>Amount</th>
+                        <th>Balance After</th>
+                        <th>Reference</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in transactions %}
+                    <tr>
+                        <td>{{ t.date|date:"d M Y" }}</td>
+                        <td>{{ t.get_transaction_type_display }}</td>
+                        <td>{{ t.get_category_display }}</td>
+                        <td class="amount">M {{ t.amount|floatformat:2 }}</td>
+                        <td class="amount">M {{ t.bank_balance_after|floatformat:2 }}</td>
+                        <td>{{ t.reference|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center text-muted">No transactions found</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body">
+        <p class="text-center text-muted">Select a bank account to view reconciliation details.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

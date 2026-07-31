@@ -1,67 +1,26 @@
 {% extends 'base.html' %}
 {% block title %}Contract Dashboard{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-file-earmark-text"></i> Contract Management</h2>
-    <div>
-        <a href="{% url 'report_contract_progress' %}" class="btn btn-outline-info"><i class="bi bi-graph-up"></i> Progress Report</a>
-    </div>
+    <h2><i class="bi bi-file-earmark-text"></i> Contract Dashboard</h2>
+    <a href="{% url 'owner_dashboard' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Back</a>
 </div>
 
-<!-- Summary Cards -->
-<div class="row mb-4">
-    <div class="col-xl-3 col-md-6 mb-3">
-        <div class="card stat-card border-left-primary h-100 py-2">
-            <div class="card-body text-center">
-                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Contracts</div>
-                <div class="h2 mb-0 font-weight-bold">{{ total_contracts }}</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6 mb-3">
-        <div class="card stat-card border-left-success h-100 py-2">
-            <div class="card-body text-center">
-                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Achieved</div>
-                <div class="h2 mb-0 font-weight-bold text-success">{{ achieved }}</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6 mb-3">
-        <div class="card stat-card border-left-warning h-100 py-2">
-            <div class="card-body text-center">
-                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">On Track</div>
-                <div class="h2 mb-0 font-weight-bold text-warning">{{ on_target }}</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6 mb-3">
-        <div class="card stat-card border-left-danger h-100 py-2">
-            <div class="card-body text-center">
-                <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">At Risk</div>
-                <div class="h2 mb-0 font-weight-bold text-danger">{{ at_risk }}</div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Contracts List -->
 <div class="card">
-    <div class="card-header bg-primary text-white">
-        <i class="bi bi-list-check"></i> Contract Status
-        <span class="float-end">Potential Bonuses: M {{ total_potential_bonuses|floatformat:2 }}</span>
-    </div>
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-striped table-hover">
                 <thead>
                     <tr>
                         <th>Driver</th>
                         <th>Vehicle</th>
                         <th>Target</th>
-                        <th>Progress</th>
-                        <th>Gross Earned</th>
+                        <th>Monthly Gross</th>
                         <th>Remaining</th>
-                        <th>Est. Payout</th>
+                        <th>Progress</th>
+                        <th>Days Left</th>
+                        <th>Daily Needed</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -69,34 +28,26 @@
                 <tbody>
                     {% for c in contracts %}
                     <tr>
-                        <td><strong>{{ c.driver.name }}</strong></td>
-                        <td>{{ c.driver.vehicle.name|default:'N/A' }}</td>
+                        <td>{{ c.driver.name }}</td>
+                        <td>{{ c.driver.vehicle.name|default:"-" }}</td>
                         <td class="amount">M {{ c.target|floatformat:2 }}</td>
-                        <td style="min-width: 150px;">
-                            <div class="progress" style="height: 20px;">
-                                <div class="progress-bar bg-{{ c.status_class }}" 
-                                     style="width: {{ c.progress }}%;">
-                                    {{ c.progress|floatformat:0 }}%
-                                </div>
-                            </div>
-                        </td>
                         <td class="amount">M {{ c.monthly_gross|floatformat:2 }}</td>
                         <td class="amount">M {{ c.remaining|floatformat:2 }}</td>
-                        <td class="amount">M {{ c.estimated_pay|floatformat:2 }}</td>
                         <td>
-                            <span class="badge bg-{{ c.status_class }}">{{ c.status }}</span>
+                            <div class="progress" style="min-width: 100px;">
+                                <div class="progress-bar bg-{{ c.status_class }}" style="width: {{ c.progress }}%">{{ c.progress }}%</div>
+                            </div>
                         </td>
+                        <td>{{ c.days_remaining }}</td>
+                        <td class="amount">M {{ c.daily_average_needed|floatformat:2 }}</td>
+                        <td><span class="badge bg-{{ c.status_class }}">{{ c.status }}</span></td>
                         <td>
-                            <a href="{% url 'owner_contract_detail' c.driver.id %}" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-eye"></i> View
-                            </a>
-                            <a href="{% url 'owner_contract_settle' c.driver.id %}" class="btn btn-sm btn-outline-success">
-                                <i class="bi bi-check-circle"></i> Settle
-                            </a>
+                            <a href="{% url 'owner_contract_detail' c.driver.id %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+                            <a href="{% url 'owner_contract_settle' c.driver.id %}" class="btn btn-sm btn-outline-success"><i class="bi bi-check-circle"></i></a>
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="9" class="text-center text-muted">No active contracts</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted">No contract drivers found</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

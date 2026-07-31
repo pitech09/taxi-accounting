@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Monthly P&L Report - {{ company_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">Monthly Profit & Loss Report</h1>
+    <a href="{% url 'report_index' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back to Reports
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Start Date</label>
+                <input type="date" class="form-control" name="start_date" value="{{ start_date|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">End Date</label>
+                <input type="date" class="form-control" name="end_date" value="{{ end_date|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Vehicle</label>
+                <select class="form-select" name="vehicle">
+                    <option value="">All Vehicles</option>
+                    {% for v in vehicles %}
+                    <option value="{{ v.id }}" {% if request.GET.vehicle == v.id|stringformat:"i" %}selected{% endif %}>{{ v.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Generate Report
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card stat-card">
+            <div class="stat-value">M {{ totals.total_income|default:0|floatformat:2 }}</div>
+            <div class="stat-label">Total Income</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card">
+            <div class="stat-value">M {{ totals.total_expenses|default:0|floatformat:2 }}</div>
+            <div class="stat-label">Total Expenses</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card">
+            <div class="stat-value amount-{% if totals.gross_profit >= 0 %}positive{% else %}negative{% endif %}">
+                M {{ totals.gross_profit|default:0|floatformat:2 }}
+            </div>
+            <div class="stat-label">Gross Profit</div>
+        </div>
+    </div>
+</div>
+
+<!-- Per-Vehicle Table -->
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-truck"></i> Per-Vehicle Breakdown
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Vehicle</th>
+                        <th class="text-end">Income</th>
+                        <th class="text-end">Expenses</th>
+                        <th class="text-end">Gross Profit</th>
+                        <th class="text-end">Driver Pay</th>
+                        <th class="text-end">Owner Collection</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for vs in vehicle_summaries %}
+                    <tr>
+                        <td>{{ vs.vehicle.name }}</td>
+                        <td class="text-end amount">M {{ vs.total_income|floatformat:2 }}</td>
+                        <td class="text-end amount">M {{ vs.total_expenses|floatformat:2 }}</td>
+                        <td class="text-end amount amount-{% if vs.gross_profit >= 0 %}positive{% else %}negative{% endif %}">
+                            M {{ vs.gross_profit|floatformat:2 }}
+                        </td>
+                        <td class="text-end amount">M {{ vs.driver_pay|floatformat:2 }}</td>
+                        <td class="text-end amount amount-positive">M {{ vs.owner_collection|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">No data found for the selected period.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light fw-bold">
+                    <tr>
+                        <td>Totals</td>
+                        <td class="text-end amount">M {{ totals.total_income|default:0|floatformat:2 }}</td>
+                        <td class="text-end amount">M {{ totals.total_expenses|default:0|floatformat:2 }}</td>
+                        <td class="text-end amount">M {{ totals.gross_profit|default:0|floatformat:2 }}</td>
+                        <td class="text-end amount">M {{ totals.driver_pay|default:0|floatformat:2 }}</td>
+                        <td class="text-end amount">M {{ totals.owner_collection|default:0|floatformat:2 }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,126 +1,139 @@
 {% extends 'base.html' %}
 {% block title %}Contract Analytics{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-bar-chart"></i> Contract Performance Analytics</h2>
-    <div>
-        <a href="{% url 'report_contract_progress' %}" class="btn btn-outline-info">Progress</a>
-        <a href="{% url 'report_contract_settlements' %}" class="btn btn-outline-info">Settlements</a>
+    <h2><i class="bi bi-graph-up"></i> Contract Analytics</h2>
+    <a href="{% url 'report_index' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Reports</a>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center stat-card">
+            <div class="card-body">
+                <div class="stat-icon"><i class="bi bi-check-circle text-success"></i></div>
+                <div class="stat-value text-success">{{ total_success }}</div>
+                <div class="stat-label">Successes</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center stat-card">
+            <div class="card-body">
+                <div class="stat-icon"><i class="bi bi-x-circle text-danger"></i></div>
+                <div class="stat-value text-danger">{{ total_failure }}</div>
+                <div class="stat-label">Failures</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center stat-card">
+            <div class="card-body">
+                <div class="stat-icon"><i class="bi bi-person"></i></div>
+                <div class="stat-value">M {{ total_driver_pay|floatformat:2 }}</div>
+                <div class="stat-label">Total Driver Pay</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center stat-card">
+            <div class="card-body">
+                <div class="stat-icon"><i class="bi bi-building"></i></div>
+                <div class="stat-value">M {{ total_owner_pay|floatformat:2 }}</div>
+                <div class="stat-label">Total Owner Pay</div>
+            </div>
+        </div>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header bg-success text-white">
-                <i class="bi bi-person"></i> Success Rate by Driver
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>Driver</th>
-                                <th>Total</th>
-                                <th>Successes</th>
-                                <th>Rate</th>
-                                <th>Avg Bonus</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for d in driver_success %}
-                            <tr>
-                                <td>{{ d.driver__name }}</td>
-                                <td>{{ d.total }}</td>
-                                <td>{{ d.successes }}</td>
-                                <td>
-                                    {% widthratio d.successes d.total 100 %}%
-                                </td>
-                                <td class="amount">M {{ d.avg_bonus|default:0|floatformat:2 }}</td>
-                            </tr>
-                            {% empty %}
-                            <tr><td colspan="5" class="text-muted text-center">No data</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header bg-info text-white">
-                <i class="bi bi-car-front"></i> Success Rate by Vehicle Type
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>Vehicle Type</th>
-                                <th>Total</th>
-                                <th>Successes</th>
-                                <th>Rate</th>
-                                <th>Avg Bonus</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for v in vehicle_success %}
-                            <tr>
-                                <td>{{ v.vehicle__vehicle_type|title }}</td>
-                                <td>{{ v.total }}</td>
-                                <td>{{ v.successes }}</td>
-                                <td>
-                                    {% widthratio v.successes v.total 100 %}%
-                                </td>
-                                <td class="amount">M {{ v.avg_bonus|default:0|floatformat:2 }}</td>
-                            </tr>
-                            {% empty %}
-                            <tr><td colspan="5" class="text-muted text-center">No data</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white"><i class="bi bi-bar-chart"></i> Driver vs Owner Payouts</div>
+    <div class="card-body">
+        <canvas id="payoutChart" style="max-height: 300px;"></canvas>
     </div>
 </div>
 
 <div class="card">
-    <div class="card-header bg-primary text-white">
-        <i class="bi bi-graph-up"></i> Monthly Trend
-    </div>
+    <div class="card-header bg-primary text-white"><i class="bi bi-table"></i> Contract Settlements</div>
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-striped table-hover">
                 <thead>
                     <tr>
-                        <th>Period</th>
-                        <th>Total</th>
-                        <th>Successes</th>
-                        <th>Success Rate</th>
-                        <th>Total Bonuses</th>
-                        <th>Owner Revenue</th>
+                        <th>Driver</th>
+                        <th>Month</th>
+                        <th>Target</th>
+                        <th>Gross</th>
+                        <th>Profit</th>
+                        <th>Success</th>
+                        <th>Driver Pay</th>
+                        <th>Owner Pay</th>
+                        <th>Days</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for t in monthly_trend %}
+                    {% for s in summaries %}
                     <tr>
-                        <td>{{ t.month }}/{{ t.year }}</td>
-                        <td>{{ t.total }}</td>
-                        <td>{{ t.successes }}</td>
+                        <td>{{ s.driver.name }}</td>
+                        <td>{{ s.month }}/{{ s.year }}</td>
+                        <td class="amount">M {{ s.target|floatformat:2 }}</td>
+                        <td class="amount">M {{ s.total_gross|floatformat:2 }}</td>
+                        <td class="amount">M {{ s.gross_profit|floatformat:2 }}</td>
                         <td>
-                            {% widthratio t.successes t.total 100 %}%
+                            {% if s.is_success %}
+                            <span class="badge bg-success">Success</span>
+                            {% else %}
+                            <span class="badge bg-danger">Failed</span>
+                            {% endif %}
                         </td>
-                        <td class="amount">M {{ t.total_bonuses|default:0|floatformat:2 }}</td>
-                        <td class="amount">M {{ t.total_owner_revenue|default:0|floatformat:2 }}</td>
+                        <td class="amount">M {{ s.driver_pay|floatformat:2 }}</td>
+                        <td class="amount">M {{ s.owner_pay|floatformat:2 }}</td>
+                        <td>{{ s.days_worked }}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="6" class="text-muted text-center">No data available</td></tr>
+                    <tr><td colspan="9" class="text-center text-muted">No contract settlements found</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const ctx = document.getElementById('payoutChart').getContext('2d');
+    const chartLabels = {{ chart_labels|safe }};
+    const chartDriver = {{ chart_driver|safe }};
+    const chartOwner = {{ chart_owner|safe }};
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: chartLabels,
+            datasets: [
+                {
+                    label: 'Driver Pay',
+                    data: chartDriver,
+                    backgroundColor: 'rgba(40, 167, 69, 0.7)',
+                    borderColor: 'rgba(40, 167, 69, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Owner Pay',
+                    data: chartOwner,
+                    backgroundColor: 'rgba(0, 123, 255, 0.7)',
+                    borderColor: 'rgba(0, 123, 255, 1)',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+</script>
 {% endblock %}

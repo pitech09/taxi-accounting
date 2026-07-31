@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
@@ -18,40 +19,41 @@
 
                     <div class="row mb-3">
                         <div class="col-md-6">
+                            <label class="form-label">Payment Method <span class="text-danger">*</span></label>
+                            {{ form.transaction_type }}
+                        </div>
+                        <div class="col-md-6">
                             <label class="form-label">Category <span class="text-danger">*</span></label>
                             {{ form.category }}
                         </div>
+                    </div>
+
+                    <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label">Amount (M) <span class="text-danger">*</span></label>
                             {{ form.amount }}
                         </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label">Date <span class="text-danger">*</span></label>
                             {{ form.date }}
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Payment Method <span class="text-danger">*</span></label>
-                            {{ form.payment_method }}
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Bank Account</label>
-                            {{ form.bank_account }}
-                            <small class="text-muted">Required if Bank Transfer</small>
-                        </div>
                     </div>
 
                     <div class="row mb-3">
+                        <div class="col-md-6 field-bank_account">
+                            <label class="form-label">Bank Account</label>
+                            {{ form.bank_account }}
+                            <small class="text-muted">Required for bank expenses</small>
+                        </div>
                         <div class="col-md-6">
                             <label class="form-label">Reference</label>
                             {{ form.reference }}
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Receipt Photo</label>
-                            {{ form.receipt_photo }}
-                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Receipt Photo</label>
+                        {{ form.receipt_photo }}
                     </div>
 
                     <div class="mb-3">
@@ -61,7 +63,7 @@
 
                     <div class="d-flex justify-content-between">
                         <a href="{% url 'owner_cashbook_dashboard' %}" class="btn btn-secondary">Cancel</a>
-                        <button type="submit" class="btn btn-danger"><i class="bi bi-save"></i> Save</button>
+                        <button type="submit" class="btn btn-danger"><i class="bi bi-save"></i> Record Expense</button>
                     </div>
                 </form>
             </div>
@@ -71,18 +73,24 @@
     <div class="col-lg-4">
         <div class="card">
             <div class="card-header bg-info text-white">
-                <i class="bi bi-info-circle"></i> Expense Info
+                <i class="bi bi-info-circle"></i> Balance Info
             </div>
             <div class="card-body">
                 <div class="mb-3">
                     <label class="text-muted">Current Cash in Hand</label>
-                    <h4 class="amount">M {{ cash_in_hand|floatformat:2 }}</h4>
+                    <h4 class="amount cash-balance" data-balance="{{ cash_in_hand|floatformat:2 }}">M {{ cash_in_hand|floatformat:2 }}</h4>
+                </div>
+                <hr>
+                <div class="mb-3">
+                    <label class="text-muted">Projected Cash Balance</label>
+                    <h4 class="amount projected-balance">M {{ cash_in_hand|floatformat:2 }}</h4>
+                </div>
+                <div class="alert alert-warning cash-warning" style="display: none;" data-threshold="1000">
+                    <i class="bi bi-exclamation-triangle"></i> Warning: Low cash balance!
                 </div>
                 <hr>
                 <div class="small text-muted">
-                    <p><strong>Cash:</strong> Decreases Cash in Hand</p>
-                    <p><strong>Bank Transfer:</strong> Decreases Bank Account balance</p>
-                    <p><strong>Petty Cash:</strong> Decreases Cash in Hand (small expenses)</p>
+                    <p><i class="bi bi-info-circle"></i> The projected balance updates as you type.</p>
                 </div>
             </div>
         </div>
@@ -90,22 +98,6 @@
 </div>
 {% endblock %}
 
-{% block extra_scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const paymentMethod = document.getElementById('id_payment_method');
-    const bankAccountField = document.getElementById('id_bank_account');
-
-    function toggleBankField() {
-        if (paymentMethod.value === 'bank') {
-            bankAccountField.parentElement.style.display = 'block';
-        } else {
-            bankAccountField.parentElement.style.display = 'none';
-        }
-    }
-
-    paymentMethod.addEventListener('change', toggleBankField);
-    toggleBankField();
-});
-</script>
+{% block extra_js %}
+<script src="{% static 'js/cashbook.js' %}"></script>
 {% endblock %}

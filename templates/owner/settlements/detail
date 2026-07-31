@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+{% block title %}Settlement Detail{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-file-text"></i> Settlement Detail</h2>
+    <div>
+        <a href="{% url 'owner_settlement_edit' settlement.id %}" class="btn btn-warning"><i class="bi bi-pencil"></i> Edit</a>
+        <a href="{% url 'owner_settlement_list' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-info-circle"></i> Settlement Information
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr><th>Driver</th><td>{{ settlement.driver.name }}</td></tr>
+                    <tr><th>Vehicle</th><td>{{ settlement.vehicle.name }} ({{ settlement.vehicle.plate }})</td></tr>
+                    <tr><th>Operating Model</th><td>{{ settlement.get_operating_model_display }}</td></tr>
+                    <tr><th>Date</th><td>{{ settlement.date|date:"d M Y" }}</td></tr>
+                    <tr><th>Period</th><td>{{ settlement.get_settlement_period_display }}</td></tr>
+                    {% if settlement.week_start %}
+                    <tr><th>Week</th><td>{{ settlement.week_start|date:"d M" }} - {{ settlement.week_end|date:"d M Y" }}</td></tr>
+                    {% endif %}
+                    <tr><th>Status</th><td>
+                        {% if settlement.status == 'approved' %}
+                        <span class="badge bg-success">Approved</span>
+                        {% elif settlement.status == 'submitted' %}
+                        <span class="badge bg-warning">Submitted</span>
+                        {% elif settlement.status == 'rejected' %}
+                        <span class="badge bg-danger">Rejected</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Draft</span>
+                        {% endif %}
+                    </td></tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-cash-coin"></i> Income & Expenses
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr><th>Cash Collected</th><td class="amount">M {{ settlement.cash_collected|floatformat:2 }}</td></tr>
+                    <tr><th>Mobile Money</th><td class="amount">M {{ settlement.mobile_collected|floatformat:2 }}</td></tr>
+                    <tr><th>Card</th><td class="amount">M {{ settlement.card_collected|floatformat:2 }}</td></tr>
+                    <tr class="table-success"><th>Total Income</th><td class="amount">M {{ settlement.total_income|floatformat:2 }}</td></tr>
+                    <tr><td colspan="2"><hr></td></tr>
+                    <tr><th>Fuel</th><td class="amount">M {{ settlement.fuel_expense|floatformat:2 }}</td></tr>
+                    <tr><th>Maintenance</th><td class="amount">M {{ settlement.maintenance_expense|floatformat:2 }}</td></tr>
+                    <tr><th>Toll</th><td class="amount">M {{ settlement.toll_expense|floatformat:2 }}</td></tr>
+                    <tr><th>Other{% if settlement.other_expense_desc %} ({{ settlement.other_expense_desc }}){% endif %}</th><td class="amount">M {{ settlement.other_expense|floatformat:2 }}</td></tr>
+                    <tr class="table-danger"><th>Total Expenses</th><td class="amount">M {{ settlement.total_expenses|floatformat:2 }}</td></tr>
+                    <tr class="table-primary"><th>Gross Profit</th><td class="amount">M {{ settlement.gross_profit|floatformat:2 }}</td></tr>
+                </table>
+            </div>
+        </div>
+
+        {% if settlement.driver_notes or settlement.owner_notes %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-chat-dots"></i> Notes
+            </div>
+            <div class="card-body">
+                {% if settlement.driver_notes %}
+                <p><strong>Driver Notes:</strong> {{ settlement.driver_notes }}</p>
+                {% endif %}
+                {% if settlement.owner_notes %}
+                <p><strong>Owner Notes:</strong> {{ settlement.owner_notes }}</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <i class="bi bi-calculator"></i> Calculations
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr><th>Driver Pay</th><td class="amount text-success">M {{ settlement.driver_pay|floatformat:2 }}</td></tr>
+                    <tr><th>Owner Collected</th><td class="amount text-primary">M {{ settlement.total_owner_collected|floatformat:2 }}</td></tr>
+                    {% if settlement.operating_model == 'quota' %}
+                    <tr><th>Daily Quota</th><td class="amount">M {{ settlement.daily_quota|floatformat:2 }}</td></tr>
+                    <tr><th>Surplus/Shortfall</th><td class="amount">M {{ settlement.surplus_shortfall|floatformat:2 }}</td></tr>
+                    <tr><th>Debt Repaid</th><td class="amount">M {{ settlement.debt_repaid|floatformat:2 }}</td></tr>
+                    <tr><th>New Debt</th><td class="amount">M {{ settlement.new_debt|floatformat:2 }}</td></tr>
+                    {% elif settlement.operating_model == 'contract' %}
+                    <tr><th>Contract Target</th><td class="amount">M {{ settlement.contract_target|floatformat:2 }}</td></tr>
+                    <tr><th>Monthly Gross</th><td class="amount">M {{ settlement.contract_monthly_gross|floatformat:2 }}</td></tr>
+                    <tr><th>Remaining</th><td class="amount">M {{ settlement.contract_remaining_target|floatformat:2 }}</td></tr>
+                    <tr><th>Success</th><td>{{ settlement.contract_is_success|yesno:"Yes,No" }}</td></tr>
+                    {% endif %}
+                </table>
+                {% if settlement.approved_at %}
+                <hr>
+                <p class="small text-muted">Approved: {{ settlement.approved_at|date:"d M Y H:i" }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

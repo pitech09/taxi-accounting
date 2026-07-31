@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Tax Report - {{ company_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">Tax Report</h1>
+    <a href="{% url 'report_index' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back to Reports
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Start Date</label>
+                <input type="date" class="form-control" name="start_date" value="{{ start_date|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">End Date</label>
+                <input type="date" class="form-control" name="end_date" value="{{ end_date|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Generate Report
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tax Summary -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">Income Summary</div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <td>Total Gross Income</td>
+                        <td class="text-end amount amount-positive">M {{ total_income|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Total Operating Expenses</td>
+                        <td class="text-end amount amount-negative">M {{ total_expenses|floatformat:2 }}</td>
+                    </tr>
+                    <tr class="fw-bold">
+                        <td>Gross Profit</td>
+                        <td class="text-end amount">M {{ gross_profit|floatformat:2 }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">Tax Calculation</div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <td>Gross Profit</td>
+                        <td class="text-end amount">M {{ gross_profit|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Less: Monthly Fixed Costs</td>
+                        <td class="text-end amount amount-negative">M {{ monthly_fixed_costs|floatformat:2 }}</td>
+                    </tr>
+                    <tr class="fw-bold">
+                        <td>Estimated Taxable Income</td>
+                        <td class="text-end amount">M {{ taxable_income|floatformat:2 }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-info-circle"></i> Notes
+    </div>
+    <div class="card-body">
+        <ul class="mb-0">
+            <li>This report provides a summary of taxable income for the selected period.</li>
+            <li>Fixed costs include insurance, permit costs, and loan payments.</li>
+            <li>Consult with a tax professional for formal tax filing.</li>
+            <li>All amounts are in Maloti (M), pegged 1:1 with ZAR.</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

@@ -13,7 +13,11 @@ urlpatterns = [
     path('settlements/<int:settlement_id>/edit/', views.settlement_edit, name='driver_settlement_edit'),
     path('settlements/<int:settlement_id>/print/', views.settlement_print, name='driver_settlement_print'),
 
-    # Contract & profile
+    # Contract & debt
     path('contract/', views.contract, name='driver_contract'),
+    path('debt/', views.debt, name='driver_debt'),
+
+    # Profile
     path('profile/', views.profile, name='driver_profile'),
+    path('change-password/', views.change_password, name='driver_change_password'),
 ]

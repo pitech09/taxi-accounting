@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Settings - {{ company_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">System Settings</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-gear"></i> Company & System Settings
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'owner_settings_update' %}">
+                    {% csrf_token %}
+
+                    <h5 class="mb-3">Company Information</h5>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Company Name</label>
+                            <input type="text" class="form-control" name="company_name" value="{{ settings.company_name }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Company Phone</label>
+                            <input type="text" class="form-control" name="company_phone" value="{{ settings.company_phone }}">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Company Email</label>
+                            <input type="email" class="form-control" name="company_email" value="{{ settings.company_email }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Company Address</label>
+                            <input type="text" class="form-control" name="company_address" value="{{ settings.company_address }}">
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+                    <h5 class="mb-3">Financial Settings</h5>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Debt Cap (M)</label>
+                            <input type="number" class="form-control amount-input" name="debt_cap" value="{{ settings.debt_cap }}" step="0.01" min="0">
+                            <div class="form-text">Maximum debt a driver can accumulate</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Repayment Percentage (%)</label>
+                            <input type="number" class="form-control" name="repayment_percentage" value="{{ settings.repayment_percentage }}" min="0" max="100">
+                            <div class="form-text">% of surplus used to repay debt</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Minimum Driver Take (M)</label>
+                            <input type="number" class="form-control amount-input" name="minimum_driver_take" value="{{ settings.minimum_driver_take }}" step="0.01" min="0">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Days in Month for Salary</label>
+                            <input type="number" class="form-control" name="days_in_month_for_salary" value="{{ settings.days_in_month_for_salary }}" min="1" max="31">
+                            <div class="form-text">Used to calculate daily salary rate</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Contract Settlement Day</label>
+                            <input type="number" class="form-control" name="contract_settlement_day" value="{{ settings.contract_settlement_day }}" min="1" max="28">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Default Bank Account</label>
+                            <select class="form-select" name="default_bank_account">
+                                <option value="">-- Select --</option>
+                                {% for bank in bank_accounts %}
+                                <option value="{{ bank.id }}" {% if settings.default_bank_account_id == bank.id %}selected{% endif %}>{{ bank.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+                    <h5 class="mb-3">Alert Thresholds</h5>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Cash Alert Threshold (M)</label>
+                            <input type="number" class="form-control amount-input" name="cash_alert_threshold" value="{{ settings.cash_alert_threshold }}" step="0.01" min="0">
+                            <div class="form-text">Alert when cash in hand falls below this amount</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Bank Alert Threshold (M)</label>
+                            <input type="number" class="form-control amount-input" name="bank_alert_threshold" value="{{ settings.bank_alert_threshold }}" step="0.01" min="0">
+                            <div class="form-text">Alert when bank balance falls below this amount</div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> Save Settings
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle"></i> Quick Info
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <strong>Currency:</strong> Maloti (M)
+                    </li>
+                    <li class="mb-2">
+                        <strong>Operating Models:</strong> Quota, Salary, Percentage, Contract
+                    </li>
+                    <li class="mb-2">
+                        <strong>Driver Portal:</strong> Drivers use 4-digit code + password
+                    </li>
+                    <li class="mb-2">
+                        <strong>Cash Book:</strong> Automatic settlement collection on approval
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,128 +1,156 @@
 <div class="row mb-3">
-    <div class="col-md-4">
-        <label class="form-label">Vehicle Name *</label>
+    <div class="col-md-6">
+        <label class="form-label">Name *</label>
         <input type="text" name="name" class="form-control" value="{{ vehicle.name|default:'' }}" required>
     </div>
-    <div class="col-md-4">
-        <label class="form-label">Plate Number *</label>
+    <div class="col-md-3">
+        <label class="form-label">Plate *</label>
         <input type="text" name="plate" class="form-control" value="{{ vehicle.plate|default:'' }}" required>
     </div>
-    <div class="col-md-4">
-        <label class="form-label">Vehicle Type</label>
+    <div class="col-md-3">
+        <label class="form-label">Vehicle Type *</label>
         <select name="vehicle_type" class="form-select">
-            <option value="sedan" {% if vehicle.vehicle_type == 'sedan' %}selected{% endif %}>Sedan (4-seater)</option>
-            <option value="minivan" {% if vehicle.vehicle_type == 'minivan' %}selected{% endif %}>Minivan (6-8 seater)</option>
-            <option value="minibus" {% if vehicle.vehicle_type == 'minibus' %}selected{% endif %}>Minibus (14-seater)</option>
-            <option value="bus" {% if vehicle.vehicle_type == 'bus' %}selected{% endif %}>Bus (30-50 seater)</option>
+            {% for value, label in vehicle.VEHICLE_TYPES %}
+            <option value="{{ value }}" {% if vehicle.vehicle_type == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
         </select>
     </div>
 </div>
+
 <div class="row mb-3">
-    <div class="col-md-4">
-        <label class="form-label">Seats</label>
-        <input type="number" name="seats" class="form-control" value="{{ vehicle.seats|default:4 }}">
+    <div class="col-md-3">
+        <label class="form-label">Seats *</label>
+        <input type="number" name="seats" class="form-control" value="{{ vehicle.seats|default:'' }}" required>
     </div>
-    <div class="col-md-4">
-        <label class="form-label">Operating Model</label>
-        <select name="operating_model" class="form-select" id="opModel">
-            <option value="quota" {% if vehicle.operating_model == 'quota' %}selected{% endif %}>Quota System</option>
-            <option value="salary" {% if vehicle.operating_model == 'salary' %}selected{% endif %}>Monthly Salary</option>
-            <option value="percentage" {% if vehicle.operating_model == 'percentage' %}selected{% endif %}>Percentage System</option>
-            <option value="contract" {% if vehicle.operating_model == 'contract' %}selected{% endif %}>Contract System</option>
+    <div class="col-md-3">
+        <label class="form-label">Operating Model *</label>
+        <select name="operating_model" class="form-select" id="id_operating_model">
+            {% for value, label in vehicle.OPERATING_MODELS %}
+            <option value="{{ value }}" {% if vehicle.operating_model == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
         </select>
     </div>
-    <div class="col-md-4">
-        <label class="form-label">Active</label>
-        <div class="form-check mt-2">
-            <input type="checkbox" name="is_active" class="form-check-input" {% if vehicle.is_active or not vehicle %}checked{% endif %}>
+    <div class="col-md-3">
+        <label class="form-label">Settlement Frequency</label>
+        <select name="default_settlement_frequency" class="form-select">
+            <option value="daily" {% if vehicle.default_settlement_frequency == 'daily' %}selected{% endif %}>Daily</option>
+            <option value="weekly" {% if vehicle.default_settlement_frequency == 'weekly' %}selected{% endif %}>Weekly</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <div class="form-check mt-4">
+            <input type="checkbox" name="is_active" class="form-check-input" {% if vehicle.is_active %}checked{% endif %}>
             <label class="form-check-label">Active</label>
         </div>
     </div>
 </div>
 
-<div id="quotaFields" class="model-fields">
-    <h5 class="text-primary">Quota System Settings</h5>
+<hr>
+
+<!-- Quota Model Fields -->
+<div class="model-fields" id="quota_fields" style="display: none;">
+    <h5 class="text-primary mb-3">Quota Model Settings</h5>
     <div class="row mb-3">
-        <div class="col-md-4">
+        <div class="col-md-6">
             <label class="form-label">Daily Quota (M)</label>
-            <input type="number" name="daily_quota" class="form-control" step="0.01" value="{{ vehicle.daily_quota|default:'250.00' }}">
+            <input type="number" name="daily_quota" class="form-control amount-input" step="0.01" value="{{ vehicle.daily_quota|default:'250.00' }}">
         </div>
     </div>
 </div>
 
-<div id="salaryFields" class="model-fields" style="display:none;">
-    <h5 class="text-success">Salary System Settings</h5>
+<!-- Salary Model Fields -->
+<div class="model-fields" id="salary_fields" style="display: none;">
+    <h5 class="text-primary mb-3">Salary Model Settings</h5>
     <div class="row mb-3">
-        <div class="col-md-4">
+        <div class="col-md-6">
             <label class="form-label">Monthly Salary (M)</label>
-            <input type="number" name="monthly_salary" class="form-control" step="0.01" value="{{ vehicle.monthly_salary|default:'3000.00' }}">
+            <input type="number" name="monthly_salary" class="form-control amount-input" step="0.01" value="{{ vehicle.monthly_salary|default:'3000.00' }}">
         </div>
     </div>
 </div>
 
-<div id="percentageFields" class="model-fields" style="display:none;">
-    <h5 class="text-warning">Percentage System Settings</h5>
+<!-- Percentage Model Fields -->
+<div class="model-fields" id="percentage_fields" style="display: none;">
+    <h5 class="text-primary mb-3">Percentage Model Settings</h5>
     <div class="row mb-3">
-        <div class="col-md-4">
+        <div class="col-md-6">
             <label class="form-label">Driver Percentage (%)</label>
             <input type="number" name="driver_percentage" class="form-control" step="0.01" value="{{ vehicle.driver_percentage|default:'30.00' }}">
         </div>
     </div>
 </div>
 
-<div id="contractFields" class="model-fields" style="display:none;">
-    <h5 class="text-info">Contract System Settings</h5>
+<!-- Contract Model Fields -->
+<div class="model-fields" id="contract_fields" style="display: none;">
+    <h5 class="text-primary mb-3">Contract Model Settings</h5>
     <div class="row mb-3">
-        <div class="col-md-4">
+        <div class="col-md-6">
             <label class="form-label">Monthly Target (M)</label>
-            <input type="number" name="contract_target" class="form-control" step="0.01" value="{{ vehicle.contract_target|default:'15000.00' }}">
+            <input type="number" name="contract_target" class="form-control amount-input" step="0.01" value="{{ vehicle.contract_target|default:'15000.00' }}">
         </div>
-        <div class="col-md-4">
+        <div class="col-md-6">
             <label class="form-label">Success Bonus Type</label>
             <select name="contract_success_bonus_type" class="form-select">
                 <option value="fixed" {% if vehicle.contract_success_bonus_type == 'fixed' %}selected{% endif %}>Fixed Amount</option>
                 <option value="percentage" {% if vehicle.contract_success_bonus_type == 'percentage' %}selected{% endif %}>Percentage of Gross</option>
-                <option value="hybrid" {% if vehicle.contract_success_bonus_type == 'hybrid' %}selected{% endif %}>Hybrid</option>
+                <option value="hybrid" {% if vehicle.contract_success_bonus_type == 'hybrid' %}selected{% endif %}>Hybrid (Fixed + %)</option>
             </select>
-        </div>
-        <div class="col-md-4">
-            <label class="form-label">Success Bonus Fixed (M)</label>
-            <input type="number" name="contract_success_bonus_fixed" class="form-control" step="0.01" value="{{ vehicle.contract_success_bonus_fixed|default:'2000.00' }}">
         </div>
     </div>
     <div class="row mb-3">
-        <div class="col-md-4">
-            <label class="form-label">Success Bonus (%)</label>
+        <div class="col-md-6">
+            <label class="form-label">Success Bonus - Fixed (M)</label>
+            <input type="number" name="contract_success_bonus_fixed" class="form-control amount-input" step="0.01" value="{{ vehicle.contract_success_bonus_fixed|default:'2000.00' }}">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Success Bonus - Percentage (%)</label>
             <input type="number" name="contract_success_bonus_percentage" class="form-control" step="0.01" value="{{ vehicle.contract_success_bonus_percentage|default:'10.00' }}">
         </div>
-        <div class="col-md-4">
+    </div>
+    <div class="row mb-3">
+        <div class="col-md-6">
             <label class="form-label">Failure Percentage (%)</label>
             <input type="number" name="contract_failure_percentage" class="form-control" step="0.01" value="{{ vehicle.contract_failure_percentage|default:'20.00' }}">
         </div>
     </div>
 </div>
 
-<h5 class="mt-4">Fixed Monthly Costs</h5>
+<hr>
+
+<!-- Fixed Costs -->
+<h5 class="text-primary mb-3">Fixed Monthly Costs</h5>
 <div class="row mb-3">
     <div class="col-md-4">
         <label class="form-label">Insurance (M)</label>
-        <input type="number" name="insurance" class="form-control" step="0.01" value="{{ vehicle.insurance|default:'0' }}">
+        <input type="number" name="insurance" class="form-control amount-input" step="0.01" value="{{ vehicle.insurance|default:'0' }}">
     </div>
     <div class="col-md-4">
-        <label class="form-label">Permit Cost (M/year)</label>
-        <input type="number" name="permit_cost" class="form-control" step="0.01" value="{{ vehicle.permit_cost|default:'0' }}">
+        <label class="form-label">Permit Cost (M)</label>
+        <input type="number" name="permit_cost" class="form-control amount-input" step="0.01" value="{{ vehicle.permit_cost|default:'0' }}">
     </div>
     <div class="col-md-4">
-        <label class="form-label">Loan Payment (M/month)</label>
-        <input type="number" name="loan_payment" class="form-control" step="0.01" value="{{ vehicle.loan_payment|default:'0' }}">
+        <label class="form-label">Loan Payment (M)</label>
+        <input type="number" name="loan_payment" class="form-control amount-input" step="0.01" value="{{ vehicle.loan_payment|default:'0' }}">
     </div>
 </div>
 
 <script>
-document.getElementById('opModel').addEventListener('change', function() {
-    document.querySelectorAll('.model-fields').forEach(el => el.style.display = 'none');
-    const map = {quota: 'quotaFields', salary: 'salaryFields', percentage: 'percentageFields', contract: 'contractFields'};
-    const target = document.getElementById(map[this.value]);
-    if (target) target.style.display = 'block';
+document.addEventListener('DOMContentLoaded', function() {
+    var model = document.getElementById('id_operating_model').value;
+    showModelFields(model);
+
+    document.getElementById('id_operating_model').addEventListener('change', function() {
+        showModelFields(this.value);
+    });
+
+    function showModelFields(model) {
+        document.querySelectorAll('.model-fields').forEach(function(el) {
+            el.style.display = 'none';
+        });
+        if (model === 'quota') document.getElementById('quota_fields').style.display = 'block';
+        if (model === 'salary') document.getElementById('salary_fields').style.display = 'block';
+        if (model === 'percentage') document.getElementById('percentage_fields').style.display = 'block';
+        if (model === 'contract') document.getElementById('contract_fields').style.display = 'block';
+    }
 });
 </script>

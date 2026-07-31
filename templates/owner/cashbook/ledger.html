@@ -4,136 +4,143 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-journal-text"></i> Cash Book Ledger</h2>
-    <a href="{% url 'owner_cashbook_export' %}" class="btn btn-outline-success"><i class="bi bi-file-earmark-spreadsheet"></i> Export CSV</a>
+    <div>
+        <a href="{% url 'owner_cashbook_add' %}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Add Transaction</a>
+        <a href="{% url 'owner_cashbook_export' %}" class="btn btn-success"><i class="bi bi-file-earmark-excel"></i> Export CSV</a>
+    </div>
 </div>
 
-<!-- Filters -->
-<div class="card mb-3">
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-funnel"></i> Filter Transactions
+    </div>
     <div class="card-body">
-        <form method="get" class="row g-3 align-items-end">
-            <div class="col-md-2">
-                <label class="form-label">Type</label>
-                <select name="type" class="form-select">
-                    <option value="">All</option>
-                    {% for value, label in transaction_types %}
-                    <option value="{{ value }}" {% if type_filter == value %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Start Date</label>
+                <input type="date" name="start_date" value="{{ start_date }}" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">End Date</label>
+                <input type="date" name="end_date" value="{{ end_date }}" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Transaction Type</label>
+                <select name="transaction_type" class="form-select">
+                    <option value="">All Types</option>
+                    <option value="addition">Cash Addition</option>
+                    <option value="withdrawal">Cash Withdrawal</option>
+                    <option value="transfer_to_bank">Transfer to Bank</option>
+                    <option value="transfer_from_bank">Transfer from Bank</option>
+                    <option value="expense_cash">Expense (Cash)</option>
+                    <option value="expense_bank">Expense (Bank)</option>
+                    <option value="petty_cash">Petty Cash</option>
+                    <option value="salary_payment">Salary Payment</option>
+                    <option value="commission_payment">Commission Payment</option>
+                    <option value="bonus_payment">Bonus Payment</option>
+                    <option value="loan_repayment">Loan Repayment</option>
+                    <option value="settlement_collection">Settlement Collection</option>
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <label class="form-label">Category</label>
                 <select name="category" class="form-select">
-                    <option value="">All</option>
-                    {% for value, label in category_choices %}
-                    <option value="{{ value }}" {% if category_filter == value %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
+                    <option value="">All Categories</option>
+                    <option value="settlement_collection">Driver Settlement Collection</option>
+                    <option value="other_income">Other Income</option>
+                    <option value="loan_income">Loan Received</option>
+                    <option value="fuel">Fuel</option>
+                    <option value="maintenance">Maintenance/Repairs</option>
+                    <option value="insurance">Insurance</option>
+                    <option value="permit">Permit/License</option>
+                    <option value="admin_expense">Admin Expense</option>
+                    <option value="driver_salary">Driver Salary</option>
+                    <option value="driver_commission">Driver Commission</option>
+                    <option value="driver_bonus">Driver Bonus</option>
+                    <option value="repayment">Loan Repayment</option>
+                    <option value="other_expense">Other Expense</option>
+                    <option value="petty_cash_expense">Petty Cash Expense</option>
                 </select>
             </div>
-            <div class="col-md-2">
-                <label class="form-label">From</label>
-                <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
-            </div>
-            <div class="col-md-2">
-                <label class="form-label">To</label>
-                <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
-            </div>
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-outline-primary w-100"><i class="bi bi-funnel"></i> Filter</button>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Filter</button>
+                <a href="{% url 'owner_cashbook_ledger' %}" class="btn btn-secondary">Clear</a>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Summary -->
 <div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card stat-card text-center">
+    <div class="col-md-4">
+        <div class="card text-center stat-card">
             <div class="card-body">
-                <small class="text-muted">Opening Balance</small>
-                <h5 class="amount">M {{ opening_balance|floatformat:2 }}</h5>
+                <div class="stat-icon"><i class="bi bi-arrow-down-circle text-success"></i></div>
+                <div class="stat-value amount-positive">M {{ total_additions|floatformat:2 }}</div>
+                <div class="stat-label">Total Additions</div>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card stat-card text-center">
+    <div class="col-md-4">
+        <div class="card text-center stat-card">
             <div class="card-body">
-                <small class="text-muted">Total Debits (In)</small>
-                <h5 class="amount text-success">M {{ total_debits|floatformat:2 }}</h5>
+                <div class="stat-icon"><i class="bi bi-arrow-up-circle text-danger"></i></div>
+                <div class="stat-value amount-negative">M {{ total_withdrawals|floatformat:2 }}</div>
+                <div class="stat-label">Total Withdrawals</div>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card stat-card text-center">
+    <div class="col-md-4">
+        <div class="card text-center stat-card">
             <div class="card-body">
-                <small class="text-muted">Total Credits (Out)</small>
-                <h5 class="amount text-danger">M {{ total_credits|floatformat:2 }}</h5>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card stat-card text-center">
-            <div class="card-body">
-                <small class="text-muted">Closing Balance</small>
-                <h5 class="amount text-primary">M {{ closing_balance|floatformat:2 }}</h5>
+                <div class="stat-icon"><i class="bi bi-calculator"></i></div>
+                <div class="stat-value {% if net >= 0 %}amount-positive{% else %}amount-negative{% endif %}">M {{ net|floatformat:2 }}</div>
+                <div class="stat-label">Net Cash Flow</div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Ledger Table -->
 <div class="card">
-    <div class="card-header bg-dark text-white">
-        <i class="bi bi-list-columns"></i> Ledger Entries
-    </div>
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-striped table-sm">
+            <table class="table table-striped table-hover">
                 <thead>
                     <tr>
                         <th>Date</th>
-                        <th>Description</th>
                         <th>Type</th>
                         <th>Category</th>
-                        <th class="text-end">Debit (In) M</th>
-                        <th class="text-end">Credit (Out) M</th>
-                        <th class="text-end">Cash Balance M</th>
-                        <th class="text-end">Bank Balance M</th>
+                        <th>Amount</th>
+                        <th>Bank Account</th>
+                        <th>Cash Bal.</th>
+                        <th>Bank Bal.</th>
+                        <th>Reference</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr class="table-light">
-                        <td colspan="4"><em>Opening Balance</em></td>
-                        <td></td><td></td>
-                        <td class="text-end amount">{{ opening_balance|floatformat:2 }}</td>
-                        <td></td>
-                    </tr>
                     {% for t in transactions %}
                     <tr>
                         <td>{{ t.date|date:"d M Y" }}</td>
+                        <td>{{ t.get_transaction_type_display }}</td>
+                        <td>{{ t.get_category_display }}</td>
+                        <td class="amount">M {{ t.amount|floatformat:2 }}</td>
+                        <td>{{ t.bank_account.name|default:"-" }}</td>
+                        <td class="amount">{{ t.cash_balance_after|default:"-"|floatformat:2 }}</td>
+                        <td class="amount">{{ t.bank_balance_after|default:"-"|floatformat:2 }}</td>
+                        <td>{{ t.reference|default:"-" }}</td>
                         <td>
-                            {{ t.notes|truncatechars:40 }}
-                            {% if t.settlement %}<br><small class="text-muted">{{ t.settlement.driver.name }}</small>{% endif %}
+                            {% if t.transaction_type != 'settlement_collection' %}
+                            <a href="{% url 'owner_cashbook_edit' t.id %}" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i></a>
+                            <a href="{% url 'owner_cashbook_delete' t.id %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                            {% else %}
+                            <span class="badge bg-secondary">System</span>
+                            {% endif %}
                         </td>
-                        <td><small>{{ t.get_transaction_type_display }}</small></td>
-                        <td><small>{{ t.get_category_display }}</small></td>
-                        <td class="text-end amount text-success">{% if t.is_inflow %}{{ t.amount|floatformat:2 }}{% endif %}</td>
-                        <td class="text-end amount text-danger">{% if t.is_outflow %}{{ t.amount|floatformat:2 }}{% endif %}</td>
-                        <td class="text-end amount">{{ t.cash_balance_after|floatformat:2 }}</td>
-                        <td class="text-end amount">{{ t.bank_balance_after|default:""|floatformat:2 }}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="8" class="text-center text-muted">No transactions found</td></tr>
+                    <tr><td colspan="9" class="text-center text-muted">No transactions found</td></tr>
                     {% endfor %}
                 </tbody>
-                <tfoot>
-                    <tr class="table-light">
-                        <th colspan="4">TOTALS</th>
-                        <th class="text-end amount text-success">{{ total_debits|floatformat:2 }}</th>
-                        <th class="text-end amount text-danger">{{ total_credits|floatformat:2 }}</th>
-                        <th class="text-end amount">{{ closing_balance|floatformat:2 }}</th>
-                        <th></th>
-                    </tr>
-                </tfoot>
             </table>
         </div>
     </div>

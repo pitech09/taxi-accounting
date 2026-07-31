@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Reports - {{ company_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">Financial Reports</h1>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <a href="{% url 'report_daily_fleet' %}" class="text-decoration-none">
+            <div class="card h-100">
+                <div class="card-body text-center py-4">
+                    <div class="stat-icon mb-3">
+                        <i class="bi bi-truck fs-1 text-primary"></i>
+                    </div>
+                    <h5 class="card-title">Daily Fleet Summary</h5>
+                    <p class="card-text text-muted">View daily income, expenses, and profit for all vehicles.</p>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-4">
+        <a href="{% url 'report_monthly_pnl' %}" class="text-decoration-none">
+            <div class="card h-100">
+                <div class="card-body text-center py-4">
+                    <div class="stat-icon mb-3">
+                        <i class="bi bi-bar-chart-line fs-1 text-success"></i>
+                    </div>
+                    <h5 class="card-title">Monthly P&L</h5>
+                    <p class="card-text text-muted">Profit & loss breakdown per vehicle for a given period.</p>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-4">
+        <a href="{% url 'report_cashbook' %}" class="text-decoration-none">
+            <div class="card h-100">
+                <div class="card-body text-center py-4">
+                    <div class="stat-icon mb-3">
+                        <i class="bi bi-book fs-1 text-warning"></i>
+                    </div>
+                    <h5 class="card-title">Cash Book Ledger</h5>
+                    <p class="card-text text-muted">Complete transaction ledger with filters and export.</p>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-4">
+        <a href="{% url 'report_bank_reconciliation' %}" class="text-decoration-none">
+            <div class="card h-100">
+                <div class="card-body text-center py-4">
+                    <div class="stat-icon mb-3">
+                        <i class="bi bi-bank fs-1 text-info"></i>
+                    </div>
+                    <h5 class="card-title">Bank Reconciliation</h5>
+                    <p class="card-text text-muted">Reconcile bank account transactions and balances.</p>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-4">
+        <a href="{% url 'report_expenses' %}" class="text-decoration-none">
+            <div class="card h-100">
+                <div class="card-body text-center py-4">
+                    <div class="stat-icon mb-3">
+                        <i class="bi bi-cash-stack fs-1 text-danger"></i>
+                    </div>
+                    <h5 class="card-title">Expense Report</h5>
+                    <p class="card-text text-muted">Categorised expense breakdown with totals.</p>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-4">
+        <a href="{% url 'report_cash_flow' %}" class="text-decoration-none">
+            <div class="card h-100">
+                <div class="card-body text-center py-4">
+                    <div class="stat-icon mb-3">
+                        <i class="bi bi-arrow-left-right fs-1 text-secondary"></i>
+                    </div>
+                    <h5 class="card-title">Cash Flow Statement</h5>
+                    <p class="card-text text-muted">Track cash inflows and outflows over a period.</p>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-4">
+        <a href="{% url 'report_contract_progress' %}" class="text-decoration-none">
+            <div class="card h-100">
+                <div class="card-body text-center py-4">
+                    <div class="stat-icon mb-3">
+                        <i class="bi bi-file-earmark-text fs-1 text-primary"></i>
+                    </div>
+                    <h5 class="card-title">Contract Progress</h5>
+                    <p class="card-text text-muted">Monitor contract driver progress towards targets.</p>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-4">
+        <a href="{% url 'report_contract_settlements' %}" class="text-decoration-none">
+            <div class="card h-100">
+                <div class="card-body text-center py-4">
+                    <div class="stat-icon mb-3">
+                        <i class="bi bi-check2-square fs-1 text-success"></i>
+                    </div>
+                    <h5 class="card-title">Contract Settlements</h5>
+                    <p class="card-text text-muted">Historical contract settlement summaries.</p>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-4">
+        <a href="{% url 'report_contract_analytics' %}" class="text-decoration-none">
+            <div class="card h-100">
+                <div class="card-body text-center py-4">
+                    <div class="stat-icon mb-3">
+                        <i class="bi bi-graph-up fs-1 text-warning"></i>
+                    </div>
+                    <h5 class="card-title">Contract Analytics</h5>
+                    <p class="card-text text-muted">Analytics and charts for contract performance.</p>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-4">
+        <a href="{% url 'report_tax' %}" class="text-decoration-none">
+            <div class="card h-100">
+                <div class="card-body text-center py-4">
+                    <div class="stat-icon mb-3">
+                        <i class="bi bi-file-earmark-text fs-1 text-danger"></i>
+                    </div>
+                    <h5 class="card-title">Tax Report</h5>
+                    <p class="card-text text-muted">Taxable income and expense summary.</p>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+{% endblock %}

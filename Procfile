@@ -1,0 +1,1 @@
+web: gunicorn taxiaccounting.wsgi:application --log-file -

@@ -5,62 +5,24 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-list-ul"></i> Cash Book Entries</h2>
     <div>
-        <a href="{% url 'owner_cashbook_export' %}" class="btn btn-outline-success"><i class="bi bi-file-earmark-spreadsheet"></i> Export CSV</a>
-        <a href="{% url 'owner_cashbook_add' %}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> New Transaction</a>
-    </div>
-</div>
-
-<!-- Filters -->
-<div class="card mb-3">
-    <div class="card-body">
-        <form method="get" class="row g-3 align-items-end">
-            <div class="col-md-3">
-                <label class="form-label">Transaction Type</label>
-                <select name="type" class="form-select">
-                    <option value="">All</option>
-                    {% for value, label in transaction_types %}
-                    <option value="{{ value }}" {% if type_filter == value %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Category</label>
-                <select name="category" class="form-select">
-                    <option value="">All</option>
-                    {% for value, label in category_choices %}
-                    <option value="{{ value }}" {% if category_filter == value %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label">From</label>
-                <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
-            </div>
-            <div class="col-md-2">
-                <label class="form-label">To</label>
-                <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
-            </div>
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-outline-primary w-100"><i class="bi bi-funnel"></i> Filter</button>
-            </div>
-        </form>
+        <a href="{% url 'owner_cashbook_ledger' %}" class="btn btn-secondary"><i class="bi bi-funnel"></i> Filtered Ledger</a>
+        <a href="{% url 'owner_cashbook_add' %}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Add Transaction</a>
     </div>
 </div>
 
 <div class="card">
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-striped">
+            <table class="table table-striped table-hover">
                 <thead>
                     <tr>
                         <th>Date</th>
                         <th>Type</th>
                         <th>Category</th>
-                        <th>Description</th>
+                        <th>Amount</th>
                         <th>Bank Account</th>
                         <th>Reference</th>
-                        <th>Amount</th>
-                        <th>Balance After</th>
+                        <th>Notes</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -68,31 +30,23 @@
                     {% for t in transactions %}
                     <tr>
                         <td>{{ t.date|date:"d M Y" }}</td>
-                        <td>
-                            {% if t.is_inflow %}
-                                <span class="badge bg-success">{{ t.get_transaction_type_display }}</span>
-                            {% else %}
-                                <span class="badge bg-danger">{{ t.get_transaction_type_display }}</span>
-                            {% endif %}
-                        </td>
-                        <td><small>{{ t.get_category_display }}</small></td>
-                        <td>
-                            {{ t.notes|truncatechars:40 }}
-                            {% if t.settlement %}<br><small class="text-muted">Settlement: {{ t.settlement.driver.name }}</small>{% endif %}
-                        </td>
+                        <td>{{ t.get_transaction_type_display }}</td>
+                        <td>{{ t.get_category_display }}</td>
+                        <td class="amount">M {{ t.amount|floatformat:2 }}</td>
                         <td>{{ t.bank_account.name|default:"-" }}</td>
                         <td>{{ t.reference|default:"-" }}</td>
-                        <td class="amount {% if t.is_inflow %}text-success{% else %}text-danger{% endif %}">
-                            {% if t.is_inflow %}+{% else %}-{% endif %}M {{ t.amount|floatformat:2 }}
-                        </td>
-                        <td class="amount">M {{ t.cash_balance_after|floatformat:2 }}</td>
+                        <td>{{ t.notes|default:"-"|truncatechars:40 }}</td>
                         <td>
-                            <a href="{% url 'owner_cashbook_edit' t.id %}" class="btn btn-sm btn-outline-warning">Edit</a>
-                            <a href="{% url 'owner_cashbook_delete' t.id %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                            {% if t.transaction_type != 'settlement_collection' %}
+                            <a href="{% url 'owner_cashbook_edit' t.id %}" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i></a>
+                            <a href="{% url 'owner_cashbook_delete' t.id %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                            {% else %}
+                            <span class="badge bg-secondary">System</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="9" class="text-center text-muted">No transactions found</td></tr>
+                    <tr><td colspan="8" class="text-center text-muted">No transactions found</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
