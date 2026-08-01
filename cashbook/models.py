@@ -36,8 +36,7 @@ class CashInHand(models.Model):
     # ------------------------------------------------------------------
     @classmethod
     def get_instance(cls):
-        """Return the singleton CashInHand instance, creating it if necessary."""
-        obj, created = cls.objects.get_or_create(id=1)
+        obj, _ = cls.objects.get_or_create(id=1)
         return obj
 
     @classmethod
@@ -114,14 +113,20 @@ class CashTransaction(models.Model):
         ('salary_payment', 'Salary Payment'),
         ('commission_payment', 'Commission Payment'),
         ('bonus_payment', 'Bonus Payment'),
+        # Loan-specific types
+        ('loan_disbursement', 'Loan Disbursement'),
         ('loan_repayment', 'Loan Repayment'),
+        ('loan_interest', 'Loan Interest'),
         ('settlement_collection', 'Settlement Collection'),
     ]
 
-    CATEGORIES = [
+    CATEGORY_CHOICES = [
         ('settlement_collection', 'Driver Settlement Collection'),
         ('other_income', 'Other Income'),
         ('loan_income', 'Loan Received'),
+        ('loan_disbursement', 'Loan Disbursement'),
+        ('loan_repayment', 'Loan Repayment'),
+        ('loan_interest', 'Loan Interest'),
         ('fuel', 'Fuel'),
         ('maintenance', 'Maintenance/Repairs'),
         ('insurance', 'Insurance'),
@@ -130,7 +135,6 @@ class CashTransaction(models.Model):
         ('driver_salary', 'Driver Salary'),
         ('driver_commission', 'Driver Commission'),
         ('driver_bonus', 'Driver Bonus'),
-        ('repayment', 'Loan Repayment'),
         ('other_expense', 'Other Expense'),
         ('petty_cash_expense', 'Petty Cash Expense'),
     ]
@@ -149,9 +153,17 @@ class CashTransaction(models.Model):
         blank=True,
         related_name='transactions',
     )
+    # Optional link to a loan (for loan-related transactions)
+    loan = models.ForeignKey(
+        'loans.Loan',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cash_transactions',
+    )
 
     transaction_type = models.CharField(max_length=30, choices=TRANSACTION_TYPES)
-    category = models.CharField(max_length=30, choices=CATEGORIES)
+    category = models.CharField(max_length=30, choices=CATEGORY_CHOICES)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     date = models.DateField(default=timezone.now)
     reference = models.CharField(max_length=100, blank=True)
@@ -188,27 +200,28 @@ class CashTransaction(models.Model):
         is_new = self.pk is None
 
         if is_new:
-            # Process the transaction
-            if self.transaction_type in ('addition', 'transfer_from_bank', 'settlement_collection'):
+            # Determine which cash movements to apply
+            additions = ('addition', 'transfer_from_bank', 'settlement_collection')
+            subtractions = ('withdrawal', 'transfer_to_bank', 'expense_cash',
+                           'petty_cash', 'salary_payment', 'commission_payment',
+                           'bonus_payment', 'loan_repayment', 'loan_disbursement')
+
+            if self.transaction_type in additions:
                 CashInHand.add(self.amount, self)
-            elif self.transaction_type in ('withdrawal', 'transfer_to_bank', 'expense_cash',
-                                           'petty_cash', 'salary_payment', 'commission_payment',
-                                           'bonus_payment', 'loan_repayment'):
+            elif self.transaction_type in subtractions:
                 CashInHand.subtract(self.amount, self)
 
+            # Bank movements
             if self.transaction_type == 'transfer_to_bank' and self.bank_account:
                 self.bank_account.add_balance(self.amount)
             elif self.transaction_type == 'transfer_from_bank' and self.bank_account:
                 self.bank_account.subtract_balance(self.amount)
-            elif self.transaction_type in ('expense_bank',) and self.bank_account:
+            elif self.transaction_type == 'expense_bank' and self.bank_account:
                 self.bank_account.subtract_balance(self.amount)
 
             # Store resulting balances
             self.cash_balance_after = CashInHand.get_balance()
-            if self.bank_account:
-                self.bank_balance_after = self.bank_account.current_balance
-            else:
-                self.bank_balance_after = None
+            self.bank_balance_after = self.bank_account.current_balance if self.bank_account else None
 
         super().save(*args, **kwargs)
 
