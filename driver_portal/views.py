@@ -13,6 +13,7 @@ from settlements.models import DailySettlement
 from settlements.forms import DailySettlementForm
 from cashbook.models import CashTransaction
 from accounts.models import SystemSettings
+from loans.models import Loan
 
 
 # ------------------------------------------------------------------
@@ -290,6 +291,27 @@ def debt(request):
         'current_debt': driver.debt_balance,
     }
     return render(request, 'driver_portal/debt.html', context)
+
+
+# ------------------------------------------------------------------
+# Loans
+# ------------------------------------------------------------------
+@driver_login_required
+def loans(request):
+    """Driver's loan summary."""
+    driver = request.driver
+    loans = Loan.objects.filter(driver=driver, status='active')
+    history = Loan.objects.filter(driver=driver).order_by('-created_at')
+
+    total_balance = loans.aggregate(total=Sum('outstanding_balance'))['total'] or 0
+
+    context = {
+        'driver': driver,
+        'loans': loans,
+        'history': history,
+        'total_balance': total_balance,
+    }
+    return render(request, 'driver_portal/loans.html', context)
 
 
 # ------------------------------------------------------------------

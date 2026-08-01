@@ -18,6 +18,7 @@ from cashbook.models import CashInHand, BankAccount, CashTransaction
 from accounts.models import SystemSettings
 from contracts.models import MonthlyContractSummary
 from settlements.forms import SettlementApprovalForm
+from loans.models import Loan
 
 
 def _to_decimal(value, default=Decimal('0.00')):
@@ -71,6 +72,15 @@ def dashboard(request):
         total_driver=Sum('driver_pay'),
     )
 
+    # Loan summary
+    total_driver_loans = Loan.objects.filter(
+        loan_type='driver', status='active'
+    ).aggregate(total=Sum('outstanding_balance'))['total'] or 0
+
+    total_business_loans = Loan.objects.filter(
+        loan_type='business', status='active'
+    ).aggregate(total=Sum('outstanding_balance'))['total'] or 0
+
     context = {
         'settings': settings,
         'cash_balance': cash_balance,
@@ -81,6 +91,9 @@ def dashboard(request):
         'monthly_income': monthly_data['total_income'] or 0,
         'monthly_owner': monthly_data['total_owner'] or 0,
         'monthly_driver': monthly_data['total_driver'] or 0,
+        'total_driver_loans': total_driver_loans,
+        'total_business_loans': total_business_loans,
+        'today': today,  # <-- ADDED
     }
     return render(request, 'owner/dashboard.html', context)
 

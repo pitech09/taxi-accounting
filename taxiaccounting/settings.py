@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'owner',
     'driver_portal',
     'cashbook',
+    'loans',
     'api',
 ]
 

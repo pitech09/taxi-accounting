@@ -1,8 +1,11 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
 
 urlpatterns = [
     path('dashboard/', views.dashboard, name='owner_dashboard'),
+
+    # Loans
+    path('loans/', include('loans.urls')),
 
     # Vehicles
     path('vehicles/', views.vehicle_list, name='owner_vehicle_list'),

@@ -141,6 +141,16 @@ class DailySettlement(models.Model):
     cash_added_to_hand = models.DecimalField(max_digits=10, decimal_places=2, default=0, editable=False)
     cash_transaction_created = models.BooleanField(default=False)
 
+    # Loan deduction
+    loan_deduction = models.DecimalField(max_digits=10, decimal_places=2, default=0, editable=False)
+    loan_paid = models.ForeignKey(
+        'loans.Loan',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='settlement_deductions'
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -201,6 +211,7 @@ class DailySettlement(models.Model):
         self.total_owner_collected = Decimal('0.00')
         self.debt_status = 'none'
         self.cash_added_to_hand = Decimal('0.00')
+        self.loan_deduction = Decimal('0.00')
 
     def _calculate_totals(self):
         """Calculate total income and total expenses.
@@ -303,6 +314,24 @@ class DailySettlement(models.Model):
         # total_owner_collected = quota_paid_to_owner + debt_repaid
         self.total_owner_collected = _round2(self.quota_paid_to_owner + self.debt_repaid)
         self.cash_added_to_hand = self.total_owner_collected
+
+        # Deduct loan payment from driver pay
+        if self.driver_pay > 0 and self.loan_paid:
+            loan_balance = self.loan_paid.outstanding_balance
+            deductible = min(self.driver_pay, loan_balance)
+            if deductible > 0:
+                self.loan_deduction = _round2(deductible)
+                self.driver_pay = _round2(self.driver_pay - deductible)
+                # Create loan payment record
+                from loans.models import LoanPayment
+                LoanPayment.objects.create(
+                    loan=self.loan_paid,
+                    amount=_round2(deductible),
+                    date=self.date,
+                    payment_method='driver_pay',
+                    settlement=self,
+                    notes=f"Deducted from settlement on {self.date}"
+                )
 
     def _calculate_salary(self):
         """Salary model: driver receives fixed monthly salary; owner keeps all gross profit after salary.

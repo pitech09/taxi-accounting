@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Owner Dashboard{% endblock %}
+
 {% block content %}
 <h2><i class="bi bi-speedometer2"></i> Dashboard</h2>
 
@@ -33,6 +35,28 @@
             <div class="card-body">
                 <h5 class="card-title"><i class="bi bi-check-circle"></i> Approved Today</h5>
                 <h3 class="text-success">{{ approved_today }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loan Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card text-center border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-muted small"><i class="bi bi-people"></i> Driver Loans</div>
+                <div class="h4 text-warning">M {{ total_driver_loans|floatformat:2 }}</div>
+                <a href="{% url 'loans:loan_list' %}?type=driver" class="btn btn-sm btn-outline-primary">View</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card text-center border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-muted small"><i class="bi bi-building"></i> Business Loans</div>
+                <div class="h4 text-danger">M {{ total_business_loans|floatformat:2 }}</div>
+                <a href="{% url 'loans:loan_list' %}?type=business" class="btn btn-sm btn-outline-primary">View</a>
             </div>
         </div>
     </div>

@@ -31,9 +31,6 @@ class CashInHand(models.Model):
     def __str__(self):
         return f"Cash in Hand: M {self.balance}"
 
-    # ------------------------------------------------------------------
-    # Singleton helpers
-    # ------------------------------------------------------------------
     @classmethod
     def get_instance(cls):
         obj, _ = cls.objects.get_or_create(id=1)
@@ -41,12 +38,10 @@ class CashInHand(models.Model):
 
     @classmethod
     def get_balance(cls):
-        """Return the current cash-in-hand balance."""
         return cls.get_instance().balance
 
     @classmethod
     def add(cls, amount, transaction=None):
-        """Add *amount* to the cash-in-hand balance."""
         instance = cls.get_instance()
         instance.balance = _round2(instance.balance + amount)
         instance.save()
@@ -54,7 +49,6 @@ class CashInHand(models.Model):
 
     @classmethod
     def subtract(cls, amount, transaction=None):
-        """Subtract *amount* from the cash-in-hand balance."""
         instance = cls.get_instance()
         instance.balance = _round2(instance.balance - amount)
         instance.save()
@@ -62,8 +56,6 @@ class CashInHand(models.Model):
 
 
 class BankAccount(models.Model):
-    """A bank account with an opening and current balance."""
-
     name = models.CharField(max_length=100)
     account_number = models.CharField(max_length=50)
     bank_name = models.CharField(max_length=100)
@@ -81,19 +73,16 @@ class BankAccount(models.Model):
         return f"{self.name} ({self.bank_name})"
 
     def add_balance(self, amount):
-        """Increase the bank account balance."""
         self.current_balance = _round2(self.current_balance + amount)
         self.save()
         return self.current_balance
 
     def subtract_balance(self, amount):
-        """Decrease the bank account balance."""
         self.current_balance = _round2(self.current_balance - amount)
         self.save()
         return self.current_balance
 
     def save(self, *args, **kwargs):
-        """Set current_balance to opening_balance on first save."""
         if not self.pk:
             self.current_balance = _round2(self.opening_balance)
         super().save(*args, **kwargs)

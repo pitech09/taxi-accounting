@@ -17,6 +17,9 @@ urlpatterns = [
     path('contract/', views.contract, name='driver_contract'),
     path('debt/', views.debt, name='driver_debt'),
 
+    # Loans
+    path('loans/', views.loans, name='driver_loans'),
+
     # Profile
     path('profile/', views.profile, name='driver_profile'),
     path('change-password/', views.change_password, name='driver_change_password'),

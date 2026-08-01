@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Add New Loan{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-credit-card"></i> Add New Loan</h2>
+    <a href="{% url 'loans:loan_list' %}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Loans
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <i class="bi bi-plus-circle"></i> Loan Details
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row g-3">
+                <!-- Loan Type -->
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Loan Type *</label>
+                    <select name="loan_type" class="form-select" required>
+                        <option value="">Select type</option>
+                        {% for value, label in loan_types %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Driver -->
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Driver (optional)</label>
+                    <select name="driver" class="form-select">
+                        <option value="">— No driver (Business Loan) —</option>
+                        {% for driver in drivers %}
+                        <option value="{{ driver.id }}">{{ driver.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Select a driver only for driver advances.</div>
+                </div>
+
+                <!-- Amount -->
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Amount (M) *</label>
+                    <input type="number" name="amount" class="form-control" step="0.01" min="0.01" required>
+                </div>
+
+                <!-- Interest Rate -->
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Interest Rate (%)</label>
+                    <input type="number" name="interest_rate" class="form-control" step="0.01" min="0" value="0">
+                    <div class="form-text">Annual interest rate. Set to 0 for no interest.</div>
+                </div>
+
+                <!-- Interest Method -->
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Interest Method</label>
+                    <select name="interest_method" class="form-select">
+                        {% for value, label in interest_methods %}
+                        <option value="{{ value }}" {% if value == 'simple' %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Interest Frequency -->
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Interest Frequency</label>
+                    <select name="interest_frequency" class="form-select">
+                        {% for value, label in interest_frequencies %}
+                        <option value="{{ value }}" {% if value == 'monthly' %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Start Date -->
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Start Date *</label>
+                    <input type="date" name="start_date" class="form-control" required value="{{ today|date:'Y-m-d' }}">
+                </div>
+
+                <!-- Expected Repayment Date -->
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Expected Repayment Date</label>
+                    <input type="date" name="expected_repayment_date" class="form-control">
+                </div>
+
+                <!-- Purpose -->
+                <div class="col-12">
+                    <label class="form-label fw-bold">Purpose</label>
+                    <input type="text" name="purpose" class="form-control" maxlength="200" placeholder="e.g., Vehicle repair, fuel advance">
+                </div>
+
+                <!-- Notes -->
+                <div class="col-12">
+                    <label class="form-label fw-bold">Notes</label>
+                    <textarea name="notes" class="form-control" rows="3" placeholder="Additional details..."></textarea>
+                </div>
+            </div>
+
+            <!-- Buttons -->
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-save"></i> Create Loan
+                </button>
+                <a href="{% url 'loans:loan_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Record Payment - Loan #{{ loan.id }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-cash"></i> Record Payment - Loan #{{ loan.id }}</h2>
+    <a href="{% url 'loans:loan_detail' loan.id %}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Loan
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-info text-white">
+        <i class="bi bi-info-circle"></i> Loan Info
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <table class="table table-sm mb-0">
+                    <tr><th>Type</th><td>{{ loan.get_loan_type_display }}</td></tr>
+                    <tr><th>Driver</th><td>{{ loan.driver.name|default:"-" }}</td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <table class="table table-sm mb-0">
+                    <tr><th>Original Amount</th><td>M {{ loan.amount|floatformat:2 }}</td></tr>
+                    <tr><th>Outstanding Balance</th><td class="text-danger fw-bold">M {{ loan.outstanding_balance|floatformat:2 }}</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header bg-success text-white">
+        <i class="bi bi-cash-stack"></i> Record Payment
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Amount (M) *</label>
+                    <input type="number" name="amount" class="form-control" step="0.01" min="0.01" max="{{ loan.outstanding_balance }}" required>
+                    <div class="form-text">Max: M {{ loan.outstanding_balance|floatformat:2 }}</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Payment Method *</label>
+                    <select name="payment_method" class="form-select" required>
+                        <option value="">Select method</option>
+                        {% for value, label in payment_methods %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Date *</label>
+                    <input type="date" name="date" class="form-control" required value="{{ today|date:'Y-m-d' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Bank Account</label>
+                    <select name="bank_account" class="form-select">
+                        <option value="">— No bank account —</option>
+                        {% for bank in bank_accounts %}
+                        <option value="{{ bank.id }}">{{ bank.name }} ({{ bank.bank_name }})</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Only required for bank transfers.</div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Reference</label>
+                    <input type="text" name="reference" class="form-control" maxlength="100" placeholder="e.g., Receipt #123">
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Notes</label>
+                    <textarea name="notes" class="form-control" rows="3" placeholder="Additional details..."></textarea>
+                </div>
+            </div>
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-save"></i> Record Payment
+                </button>
+                <a href="{% url 'loans:loan_detail' loan.id %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

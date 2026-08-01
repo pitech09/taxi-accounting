@@ -18,6 +18,7 @@ from settlements.models import DailySettlement
 from cashbook.models import CashInHand, BankAccount, CashTransaction
 from accounts.models import SystemSettings
 from contracts.models import MonthlyContractSummary
+from loans.models import Loan, LoanPayment, LoanInterest
 
 
 def _owner_required(view_func):
@@ -194,7 +195,7 @@ def cashbook_report(request):
         'additions': additions,
         'withdrawals': withdrawals,
         'net': net,
-        'cash_balance': cash_balance,          # ← THIS WAS MISSING
+        'cash_balance': cash_balance,
         'opening_balance': cash_balance - net,
         'transaction_count': transactions.count(),
     }
@@ -302,9 +303,11 @@ def expense_report(request):
         'expenses': expenses,
         'by_category': by_category_with_labels,
         'total': total,
-        'category_choices': category_field.choices,  # tuple of (code, label)
+        'category_choices': category_field.choices,
     }
     return render(request, 'reports/expenses.html', context)
+
+
 # ------------------------------------------------------------------
 # Cash flow statement
 # ------------------------------------------------------------------
@@ -383,7 +386,7 @@ def contract_progress(request):
         if year == today.year and month == today.month:
             days_remaining = max(0, days_in_month - today.day)
         else:
-            days_remaining = days_in_month  # full month remaining if not current month
+            days_remaining = days_in_month
 
         daily_needed = max(0, (target - monthly_gross) / max(1, days_remaining)) if days_remaining > 0 else 0
 
@@ -489,7 +492,6 @@ def tax_report(request):
     months_in_period = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month) + 1
     total_fixed = 0
     for v in Vehicle.objects.filter(is_active=True):
-        # Annual permit cost / 12 per month, then multiply by months in period
         monthly_fixed = v.insurance + (v.permit_cost / 12) + v.loan_payment
         total_fixed += monthly_fixed * months_in_period
 
@@ -503,3 +505,35 @@ def tax_report(request):
         'taxable_income': gross_profit - total_fixed,
     }
     return render(request, 'reports/tax.html', context)
+
+
+# ------------------------------------------------------------------
+# Loan report
+# ------------------------------------------------------------------
+@_owner_required
+def loan_report(request):
+    """Loan report with all loans and repayment status."""
+    start_date, end_date = _get_date_range(request)
+    status_filter = request.GET.get('status', '')
+
+    loans = Loan.objects.all().order_by('-start_date')
+    if status_filter:
+        loans = loans.filter(status=status_filter)
+
+    total_outstanding = loans.aggregate(total=Sum('outstanding_balance'))['total'] or 0
+    total_paid = loans.aggregate(total=Sum('amount'))['total'] or 0
+    total_interest = LoanInterest.objects.filter(
+        date__gte=start_date, date__lte=end_date
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    context = {
+        'loans': loans,
+        'start_date': start_date,
+        'end_date': end_date,
+        'total_outstanding': total_outstanding,
+        'total_paid': total_paid,
+        'total_interest': total_interest,
+        'status_choices': Loan.STATUS_CHOICES,
+        'current_status': status_filter,
+    }
+    return render(request, 'reports/loan_report.html', context)

@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Loan Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-credit-card"></i> Loans</h2>
+    <a href="{% url 'loans:loan_add' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> New Loan
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-funnel"></i> Filters</div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All</option>
+                    {% for code, label in status_choices %}
+                    <option value="{{ code }}" {% if current_status == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Type</label>
+                <select name="type" class="form-select">
+                    <option value="">All</option>
+                    {% for code, label in type_choices %}
+                    <option value="{{ code }}" {% if current_type == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Filter</button>
+                <a href="{% url 'loans:loan_list' %}" class="btn btn-outline-secondary ms-2">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Summary -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-muted small">Total Outstanding</div>
+                <div class="h4 text-danger">M {{ total_outstanding|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-muted small">Active Loans</div>
+                <div class="h4">{{ loans|length }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card">
+    <div class="card-header bg-primary text-white"><i class="bi bi-list-ul"></i> Loans</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Driver</th>
+                        <th>Amount</th>
+                        <th>Outstanding</th>
+                        <th>Interest Rate</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for loan in loans %}
+                    <tr>
+                        <td>{{ loan.get_loan_type_display }}</td>
+                        <td>{{ loan.driver.name|default:"-" }}</td>
+                        <td>M {{ loan.amount|floatformat:2 }}</td>
+                        <td class="text-danger">M {{ loan.outstanding_balance|floatformat:2 }}</td>
+                        <td>{{ loan.interest_rate }}%</td>
+                        <td><span class="badge bg-{% if loan.status == 'active' %}warning{% elif loan.status == 'paid' %}success{% else %}danger{% endif %}">{{ loan.get_status_display }}</span></td>
+                        <td>
+                            <a href="{% url 'loans:loan_detail' loan.id %}" class="btn btn-sm btn-info"><i class="bi bi-eye"></i></a>
+                            <a href="{% url 'loans:loan_pay' loan.id %}" class="btn btn-sm btn-success"><i class="bi bi-cash"></i></a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-center text-muted py-4">No loans found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
