@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.db.models import Sum
 from django.utils import timezone
 from datetime import date
+from django.core.exceptions import ValidationError  # <-- ADDED
 
 from .models import CashInHand, BankAccount, CashTransaction
 from .forms import BankAccountForm, CashTransactionForm, ExpenseForm, DepositForm
@@ -122,9 +123,14 @@ def cashbook_add(request):
         if form.is_valid():
             transaction = form.save(commit=False)
             transaction.created_by = request.user
-            transaction.save()
-            messages.success(request, 'Transaction recorded successfully.')
-            return redirect('owner_cashbook_dashboard')
+            try:
+                transaction.save()
+                messages.success(request, 'Transaction recorded successfully.')
+                return redirect('owner_cashbook_dashboard')
+            except ValidationError as e:
+                messages.error(request, str(e))
+        else:
+            messages.error(request, 'Please correct the errors below.')
     else:
         form = CashTransactionForm()
     return render(request, 'owner/cashbook/form.html', {
@@ -146,9 +152,14 @@ def cashbook_edit(request, transaction_id):
     if request.method == 'POST':
         form = CashTransactionForm(request.POST, request.FILES, instance=transaction)
         if form.is_valid():
-            form.save()
-            messages.success(request, 'Transaction updated successfully.')
-            return redirect('owner_cashbook_ledger')
+            try:
+                form.save()
+                messages.success(request, 'Transaction updated successfully.')
+                return redirect('owner_cashbook_ledger')
+            except ValidationError as e:
+                messages.error(request, str(e))
+        else:
+            messages.error(request, 'Please correct the errors below.')
     else:
         form = CashTransactionForm(instance=transaction)
 
@@ -271,9 +282,14 @@ def bank_deposit(request):
             transaction.transaction_type = 'transfer_to_bank'
             transaction.category = 'other_income'
             transaction.created_by = request.user
-            transaction.save()
-            messages.success(request, f'Deposited M {transaction.amount} to {transaction.bank_account.name}.')
-            return redirect('owner_cashbook_dashboard')
+            try:
+                transaction.save()
+                messages.success(request, f'Deposited M {transaction.amount} to {transaction.bank_account.name}.')
+                return redirect('owner_cashbook_dashboard')
+            except ValidationError as e:
+                messages.error(request, str(e))
+        else:
+            messages.error(request, 'Please correct the errors below.')
     else:
         form = DepositForm()
     return render(request, 'owner/cashbook/deposit.html', {
@@ -293,9 +309,14 @@ def bank_withdraw(request):
             transaction.transaction_type = 'transfer_from_bank'
             transaction.category = 'other_income'
             transaction.created_by = request.user
-            transaction.save()
-            messages.success(request, f'Withdrew M {transaction.amount} from {transaction.bank_account.name}.')
-            return redirect('owner_cashbook_dashboard')
+            try:
+                transaction.save()
+                messages.success(request, f'Withdrew M {transaction.amount} from {transaction.bank_account.name}.')
+                return redirect('owner_cashbook_dashboard')
+            except ValidationError as e:
+                messages.error(request, str(e))
+        else:
+            messages.error(request, 'Please correct the errors below.')
     else:
         form = DepositForm()
     return render(request, 'owner/cashbook/withdraw.html', {
@@ -316,9 +337,14 @@ def record_expense(request):
         if form.is_valid():
             transaction = form.save(commit=False)
             transaction.created_by = request.user
-            transaction.save()
-            messages.success(request, 'Expense recorded successfully.')
-            return redirect('owner_cashbook_dashboard')
+            try:
+                transaction.save()
+                messages.success(request, 'Expense recorded successfully.')
+                return redirect('owner_cashbook_dashboard')
+            except ValidationError as e:
+                messages.error(request, str(e))
+        else:
+            messages.error(request, 'Please correct the errors below.')
     else:
         form = ExpenseForm()
     return render(request, 'owner/cashbook/expense.html', {
@@ -338,9 +364,14 @@ def record_petty_cash(request):
             transaction.transaction_type = 'petty_cash'
             transaction.category = 'petty_cash_expense'
             transaction.created_by = request.user
-            transaction.save()
-            messages.success(request, 'Petty cash expense recorded.')
-            return redirect('owner_cashbook_dashboard')
+            try:
+                transaction.save()
+                messages.success(request, 'Petty cash expense recorded.')
+                return redirect('owner_cashbook_dashboard')
+            except ValidationError as e:
+                messages.error(request, str(e))
+        else:
+            messages.error(request, 'Please correct the errors below.')
     else:
         form = ExpenseForm(initial={'transaction_type': 'petty_cash', 'category': 'petty_cash_expense'})
     return render(request, 'owner/cashbook/expense.html', {

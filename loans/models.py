@@ -77,7 +77,6 @@ class Loan(models.Model):
         if days <= 0:
             return Decimal('0.00')
         
-        # Convert to Decimal for safe arithmetic
         days_dec = Decimal(str(days))
         rate = self.interest_rate / Decimal('100')
         daily_rate = rate / Decimal('365')
@@ -88,7 +87,6 @@ class Loan(models.Model):
             rate_per_day = Decimal('1') + daily_rate
             interest = self.outstanding_balance * (rate_per_day ** days_dec) - self.outstanding_balance
         elif self.interest_method == 'flat':
-            # Flat rate: calculated on the original loan amount, not outstanding balance
             flat_rate = rate
             interest = self.amount * flat_rate * (days_dec / Decimal('365'))
         else:
@@ -97,23 +95,15 @@ class Loan(models.Model):
         return interest.quantize(Decimal('0.01'))
 
     def accrue_interest(self, as_of_date=None):
-        """
-        Calculate and record interest for the period.
-        The interest entry is created, and the loan balance is automatically
-        updated by the LoanInterest.save() method.
-        """
         as_of_date = self._parse_date(as_of_date)
         amount = self.calculate_interest(as_of_date)
         if amount <= 0:
             return
-        # Create the interest entry – this will trigger LoanInterest.save()
         LoanInterest.objects.create(loan=self, amount=amount, date=as_of_date)
-        # Update the last interest date but DO NOT manually adjust balance
         self.last_interest_date = as_of_date
         self.save(update_fields=['last_interest_date'])
 
     def update_balance(self):
-        """Recalculate outstanding balance from all payments and interest entries."""
         total_paid = self.payments.aggregate(total=models.Sum('amount'))['total'] or 0
         total_interest = self.interest_entries.aggregate(total=models.Sum('amount'))['total'] or 0
         self.outstanding_balance = self.amount + total_interest - total_paid
@@ -145,8 +135,7 @@ class LoanPayment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        self.loan.update_balance()
+        # 1. For cash/bank payments, create CashTransaction FIRST to validate funds
         if self.payment_method in ['cash', 'bank']:
             CashTransaction.objects.create(
                 transaction_type='expense_cash' if self.payment_method == 'cash' else 'expense_bank',
@@ -158,6 +147,12 @@ class LoanPayment(models.Model):
                 notes=f"Loan repayment for {self.loan.get_loan_type_display()} - {self.notes}",
             )
 
+        # 2. Save the payment (this updates loan balance via update_balance)
+        super().save(*args, **kwargs)
+
+        # 3. Update loan balance (redundant if super save calls it, but safe)
+        self.loan.update_balance()
+
 
 class LoanInterest(models.Model):
     loan = models.ForeignKey(Loan, on_delete=models.CASCADE, related_name='interest_entries')
@@ -168,4 +163,4 @@ class LoanInterest(models.Model):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        self.loan.update_balance()   # This recalculates the outstanding balance
+        self.loan.update_balance()

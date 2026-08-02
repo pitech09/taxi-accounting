@@ -8,6 +8,7 @@ DailyCashBook – daily summary of cash in/out.
 """
 from decimal import Decimal, ROUND_HALF_UP
 from django.db import models
+from django.core.exceptions import ValidationError  # <-- ADDED
 from django.utils import timezone
 
 
@@ -49,8 +50,18 @@ class CashInHand(models.Model):
 
     @classmethod
     def subtract(cls, amount, transaction=None):
+        """
+        Subtract amount from cash balance.
+        Raises ValidationError if balance would become negative.
+        """
         instance = cls.get_instance()
-        instance.balance = _round2(instance.balance - amount)
+        new_balance = _round2(instance.balance - amount)
+        if new_balance < 0:
+            raise ValidationError(
+                f"Insufficient cash. Current balance: M {instance.balance:.2f}, "
+                f"attempted to subtract: M {amount:.2f}"
+            )
+        instance.balance = new_balance
         instance.save()
         return instance.balance
 
@@ -78,7 +89,18 @@ class BankAccount(models.Model):
         return self.current_balance
 
     def subtract_balance(self, amount):
-        self.current_balance = _round2(self.current_balance - amount)
+        """
+        Subtract amount from bank balance.
+        Raises ValidationError if balance would become negative.
+        """
+        new_balance = _round2(self.current_balance - amount)
+        if new_balance < 0:
+            raise ValidationError(
+                f"Insufficient funds in {self.name}. "
+                f"Current balance: M {self.current_balance:.2f}, "
+                f"attempted to subtract: M {amount:.2f}"
+            )
+        self.current_balance = new_balance
         self.save()
         return self.current_balance
 
@@ -195,22 +217,27 @@ class CashTransaction(models.Model):
                            'petty_cash', 'salary_payment', 'commission_payment',
                            'bonus_payment', 'loan_repayment', 'loan_disbursement')
 
-            if self.transaction_type in additions:
-                CashInHand.add(self.amount, self)
-            elif self.transaction_type in subtractions:
-                CashInHand.subtract(self.amount, self)
+            try:
+                if self.transaction_type in additions:
+                    CashInHand.add(self.amount, self)
+                elif self.transaction_type in subtractions:
+                    CashInHand.subtract(self.amount, self)
 
-            # Bank movements
-            if self.transaction_type == 'transfer_to_bank' and self.bank_account:
-                self.bank_account.add_balance(self.amount)
-            elif self.transaction_type == 'transfer_from_bank' and self.bank_account:
-                self.bank_account.subtract_balance(self.amount)
-            elif self.transaction_type == 'expense_bank' and self.bank_account:
-                self.bank_account.subtract_balance(self.amount)
+                # Bank movements
+                if self.transaction_type == 'transfer_to_bank' and self.bank_account:
+                    self.bank_account.add_balance(self.amount)
+                elif self.transaction_type == 'transfer_from_bank' and self.bank_account:
+                    self.bank_account.subtract_balance(self.amount)
+                elif self.transaction_type == 'expense_bank' and self.bank_account:
+                    self.bank_account.subtract_balance(self.amount)
 
-            # Store resulting balances
-            self.cash_balance_after = CashInHand.get_balance()
-            self.bank_balance_after = self.bank_account.current_balance if self.bank_account else None
+                # Store resulting balances
+                self.cash_balance_after = CashInHand.get_balance()
+                self.bank_balance_after = self.bank_account.current_balance if self.bank_account else None
+
+            except ValidationError as e:
+                # Re-raise with a user-friendly message
+                raise ValidationError(str(e))
 
         super().save(*args, **kwargs)
 

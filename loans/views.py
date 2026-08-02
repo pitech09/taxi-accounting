@@ -7,8 +7,9 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.utils import timezone
 from django.db.models import Sum
+from django.core.exceptions import ValidationError
 from decimal import Decimal
-from datetime import datetime  # <-- ADDED for date parsing
+from datetime import datetime
 
 from reports.views import _get_date_range
 from .models import Loan, LoanPayment, LoanInterest
@@ -115,17 +116,23 @@ def loan_add(request):
         )
         loan.save()
 
-        # --- FIX: Different handling based on loan type ---
+        # --- Determine transaction type and validate cash for driver loans ---
         if loan_type == 'business':
-            # Business loan: money COMES INTO the business (addition)
             transaction_type = 'addition'
-            cash_operation = CashInHand.add
         else:
-            # Driver loan: money GOES OUT to the driver (withdrawal)
+            # Driver loan – check cash availability
+            cash_balance = CashInHand.get_balance()
+            if amount > cash_balance:
+                messages.error(
+                    request,
+                    f"Insufficient cash to disburse this driver loan. "
+                    f"Cash in hand: M {cash_balance:.2f}, Loan amount: M {amount:.2f}"
+                )
+                loan.delete()  # remove the loan record
+                return redirect('loans:loan_add')
             transaction_type = 'withdrawal'
-            cash_operation = CashInHand.subtract
 
-        # Create cash transaction
+        # Create cash transaction – this will update CashInHand automatically
         CashTransaction.objects.create(
             transaction_type=transaction_type,
             category='loan_disbursement',
@@ -134,7 +141,6 @@ def loan_add(request):
             notes=f"Loan disbursement - {loan.get_loan_type_display()}",
             loan=loan,
         )
-        cash_operation(amount)
 
         messages.success(request, f'Loan of M {amount} created successfully.')
         return redirect('loans:loan_list')
@@ -158,7 +164,6 @@ def loan_detail(request, loan_id):
     payments = loan.payments.all().order_by('-date')
     interest_entries = loan.interest_entries.all().order_by('-date')
 
-    # Calculate interest projection
     interest_projection = loan.calculate_interest()
 
     context = {
@@ -194,6 +199,16 @@ def loan_pay(request, loan_id):
             messages.error(request, f'Amount exceeds outstanding balance of M {loan.outstanding_balance}.')
             return redirect('loans:loan_pay', loan_id=loan.id)
 
+        # For cash/bank payments, ensure bank account is selected if method is bank
+        if payment_method == 'bank' and not bank_account_id:
+            messages.error(request, 'Please select a bank account for bank transfers.')
+            context = {
+                'loan': loan,
+                'payment_methods': LoanPayment.PAYMENT_METHODS,
+                'bank_accounts': BankAccount.objects.filter(is_active=True),
+            }
+            return render(request, 'owner/loans/pay.html', context)
+
         payment = LoanPayment(
             loan=loan,
             amount=amount,
@@ -206,10 +221,18 @@ def loan_pay(request, loan_id):
         if bank_account_id:
             payment.bank_account_id = bank_account_id
 
-        payment.save()
-
-        messages.success(request, f'Payment of M {amount} recorded successfully.')
-        return redirect('loans:loan_detail', loan_id=loan.id)
+        try:
+            payment.save()
+            messages.success(request, f'Payment of M {amount} recorded successfully.')
+            return redirect('loans:loan_detail', loan_id=loan.id)
+        except ValidationError as e:
+            messages.error(request, str(e))
+            context = {
+                'loan': loan,
+                'payment_methods': LoanPayment.PAYMENT_METHODS,
+                'bank_accounts': BankAccount.objects.filter(is_active=True),
+            }
+            return render(request, 'owner/loans/pay.html', context)
 
     context = {
         'loan': loan,
